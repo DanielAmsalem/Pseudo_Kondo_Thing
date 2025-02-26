@@ -12,8 +12,15 @@ alpha = 2.2
 # [K]=[ueV]/kB -> U[K] = U[ueV]/kB
 U = 215
 T = 0.026 * U / kB  # K
-gamma01 = T
-gamma23 = T
+
+#right site only (0,0)<->(0,1) & (1,0)<->(1,1)
+gamma01 = 10*T
+gamma23 = 10*T
+
+#left site only (0,0)<->(1,0) & (0,1)<->(1,1)
+gamma02 = 0
+gamma13 = 0
+
 
 # V_bias = 0.35U
 eVm = 0.35 * U
@@ -53,11 +60,11 @@ for eR in Energy_1:
         Gammaij_normalized[2][3] = Modified_Fermi_Function(gamma23, -site_1 - U)
         Gammaij_normalized[3][2] = Modified_Fermi_Function(gamma23, + site_1 + U)
 
-        Gammaij_normalized[0][2] = Fermi_Function(-site_2)
-        Gammaij_normalized[2][0] = Fermi_Function(+ site_2)
+        Gammaij_normalized[0][2] = Modified_Fermi_Function(gamma02, -site_2)
+        Gammaij_normalized[2][0] = Modified_Fermi_Function(gamma01, +site_2)
 
-        Gammaij_normalized[1][3] = Fermi_Function(-site_2 - U)
-        Gammaij_normalized[3][1] = Fermi_Function(+site_2 + U)
+        Gammaij_normalized[1][3] = Modified_Fermi_Function(gamma13, -site_2 - U)
+        Gammaij_normalized[3][1] = Modified_Fermi_Function(gamma13, + site_2 + U)
 
         # staying rates
         Gammaij_normalized[0][0] = 0 - Gammaij_normalized[1][0] - Gammaij_normalized[2][0]
