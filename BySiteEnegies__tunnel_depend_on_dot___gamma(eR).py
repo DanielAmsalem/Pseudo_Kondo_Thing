@@ -5,22 +5,28 @@ from scipy.linalg import null_space
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
 import matplotlib.cm as cm
+from gamma_calc import gammacalc
 
 # consts
 kB = 86.1733  # [ueV/K]
-alpha = 2.2
+t = 1
+tR = 0  #ratio between GammaDD and GammaDD_R
+tL = 1  #ratio between GammaDD and GammaDD_L
+tR_2 = tR ** 2
+tL_2 = tL ** 2
 
 # [K]=[ueV]/kB -> U[K] = U[ueV]/kB
 U = 215
 T = 0.026 * U / kB  # K
 
 #right site only (0,0)<->(0,1) & (1,0)<->(1,1)
-gamma01 = 1 * T
-gamma23_set = [1 * T, 2.2 * T, 5 * T, 10 * T]
+gamma01 = 1*T
+gamma23_set = [1*T]  # [1 * T, 2.2 * T, 5 * T, 10 * T
 
 #left site only (0,0)<->(1,0) & (0,1)<->(1,1)
 gamma02 = 0
 gamma13 = 0
+
 
 # V_bias = 0.35U
 eVm = 0.35 * U
@@ -29,6 +35,11 @@ eVm = 0.35 * U
 def Fermi_Function(e):
     global kB, T
     return 1 / (1 + np.exp(e / (kB * T)))
+
+
+def occupancy_2(e):
+    global kB, T
+    return Fermi_Function(e) ** 2
 
 
 def Modified_Fermi_Function(gamma, epsilon):
@@ -52,23 +63,26 @@ for gamma23 in gamma23_set:
             site_1 = eR
             site_2 = eL
 
+            n_L_2 = occupancy_2(site_2)
+            n_R_2 = occupancy_2(site_1)
+
             # Configure Gamma_ij
             # (site_2, site_1)
             # (0,0) == 0 ; (0,1) == 1 ; (1,0) == 2 ; (1,1) == 3
             Gammaij_normalized = np.zeros((4, 4))
 
             # tranfers
-            Gammaij_normalized[0][1] = Modified_Fermi_Function(gamma01, -site_1)
-            Gammaij_normalized[1][0] = Modified_Fermi_Function(gamma01, +site_1)
+            Gammaij_normalized[0][1] = Modified_Fermi_Function(gammacalc(eR), -site_1) * (t**2 + 2 *t* tR * Fermi_Function(-site_2) + tR_2 * occupancy_2(-site_2))
+            Gammaij_normalized[1][0] = Modified_Fermi_Function(gammacalc(eR), +site_1) * (t**2 + 2*t*tR * Fermi_Function(-site_2) + tR_2 * occupancy_2(-site_2))
 
-            Gammaij_normalized[2][3] = Modified_Fermi_Function(gamma23, -site_1 - U)
-            Gammaij_normalized[3][2] = Modified_Fermi_Function(gamma23, + site_1 + U)
+            Gammaij_normalized[2][3] = Modified_Fermi_Function(gammacalc(eL), -site_1 - U) * (t**2 + tR_2 * n_L_2 + 2*t*tR*Fermi_Function(site_1))
+            Gammaij_normalized[3][2] = Modified_Fermi_Function(gammacalc(eL), + site_1 + U) * (t**2 + tR_2 * n_L_2 + 2*t*tR*Fermi_Function(site_1))
 
-            Gammaij_normalized[0][2] = Modified_Fermi_Function(gamma02, -site_2)
-            Gammaij_normalized[2][0] = Modified_Fermi_Function(gamma01, +site_2)
+            Gammaij_normalized[0][2] = Modified_Fermi_Function(gamma02, -site_2) * (t**2 + 2 *t*tL * Fermi_Function(-site_1) + tL_2 * occupancy_2(-site_1))
+            Gammaij_normalized[2][0] = Modified_Fermi_Function(gamma01, +site_2) ** (t**2 + 2 *t*tL * Fermi_Function(-site_1) + tL_2 * occupancy_2(-site_1))
 
-            Gammaij_normalized[1][3] = Modified_Fermi_Function(gamma13, -site_2 - U)
-            Gammaij_normalized[3][1] = Modified_Fermi_Function(gamma13, + site_2 + U)
+            Gammaij_normalized[1][3] = Modified_Fermi_Function(gamma13, -site_2 - U) * (t**2 + tL_2 * n_R_2 + 2 *t*tL * Fermi_Function(site_1))
+            Gammaij_normalized[3][1] = Modified_Fermi_Function(gamma13, + site_2 + U) * (t**2 + tL_2 * n_R_2 + 2 *t*tL * Fermi_Function(site_1))
 
             # staying rates
             Gammaij_normalized[0][0] = 0 - Gammaij_normalized[1][0] - Gammaij_normalized[2][0]
@@ -121,10 +135,11 @@ for gamma23 in gamma23_set:
         exit()
     else:
         cmap = cm.get_cmap('Reds_r')
-        norm = plt.Normalize(min(gamma23_set), max(gamma23_set)+8*T)
+        norm = plt.Normalize(min(gamma23_set), max(gamma23_set) + 8 * T)
         plt.scatter(np.unique(x), alachson, color=cmap(norm(gamma23)), label="gamma = " + str(gamma23 / T) + " T")
 
-plt.title("Charge imbalance, Vbias = " + str(int(eVm)) + "ueV, g01=" + str(gamma01 / T) + "T")
+plt.title("Charge imbalance, Vbias = " + str(int(eVm)) + "ueV, g01=" + str(gamma01 / T) + "T\n" + "t = "+ str(t) +" t_L = " + str(
+    tL) + ", t_R = " + str(tR))
 plt.xlabel("$\epsilon_{R}$ = $\epsilon_{R}$ [euV]")
 plt.ylabel("$\Delta$")
 plt.gca().invert_xaxis()

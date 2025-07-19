@@ -4,6 +4,10 @@ from scipy.special import digamma
 from scipy.linalg import null_space
 import matplotlib.pyplot as plt
 
+"""
+this file allows us to find where we are in the eR eL phase space
+"""
+
 # consts
 kB = 86.1733  # [ueV/K]
 
