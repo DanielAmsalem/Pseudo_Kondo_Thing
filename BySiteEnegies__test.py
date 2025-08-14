@@ -6,6 +6,12 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
 import matplotlib.cm as cm
 
+"""
+this file describes a DQQ with hamiltonian
+H = Hbaths + Ht 
+not dot dependent term, both dots tunnel to leads with the same t (in Ht)
+"""
+
 # consts
 kB = 86.1733  # [ueV/K]
 alpha = 2.2
@@ -65,7 +71,7 @@ for gamma23 in gamma23_set:
             Gammaij_normalized[3][2] = Modified_Fermi_Function(gamma23, + site_1 + U)
 
             Gammaij_normalized[0][2] = Modified_Fermi_Function(gamma02, -site_2)
-            Gammaij_normalized[2][0] = Modified_Fermi_Function(gamma01, +site_2)
+            Gammaij_normalized[2][0] = Modified_Fermi_Function(gamma02, +site_2)
 
             Gammaij_normalized[1][3] = Modified_Fermi_Function(gamma13, -site_2 - U)
             Gammaij_normalized[3][1] = Modified_Fermi_Function(gamma13, + site_2 + U)

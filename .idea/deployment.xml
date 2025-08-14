@@ -2,21 +2,63 @@
 <project version="4">
   <component name="PublishConfigData">
     <serverData>
-      <paths name="amsalda@132.72.65.248:22 password">
+      <paths name="amsalda@132.72.65.238:22 password">
         <serverdata>
           <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
-      <paths name="amsalda@132.72.65.248:22 password (2)">
+      <paths name="amsalda@132.72.66.23:22 password">
         <serverdata>
           <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
-      <paths name="amsalda@132.72.66.116:22 password">
+      <paths name="amsalda@132.72.66.23:22 password (2)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="amsalda@132.72.66.23:22 password (3)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="amsalda@132.72.67.225:22 password">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="amsalda@132.72.67.225:22 password (2)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="amsalda@132.72.67.225:22 password (3)">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="amsalda@132.72.67.229:22 password">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="amsalda@132.72.67.229:22 password (2)">
         <serverdata>
           <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />
