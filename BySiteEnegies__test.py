@@ -122,10 +122,10 @@ for gamma23 in gamma23_set:
     else:
         cmap = cm.get_cmap('Reds_r')
         norm = plt.Normalize(min(gamma23_set), max(gamma23_set)+8*T)
-        plt.scatter(np.unique(x), alachson, color=cmap(norm(gamma23)), label="gamma = " + str(gamma23 / T) + " T")
+        plt.scatter(np.unique(x), alachson, color=cmap(norm(gamma23)), label="g23 = " + str(gamma23 / T) + " T")
 
 plt.title("Charge imbalance, Vbias = " + str(int(eVm)) + "ueV, g01=" + str(gamma01 / T) + "T")
-plt.xlabel("$\epsilon_{R}$ = $\epsilon_{R}$ [euV]")
+plt.xlabel("$\epsilon_{R}$ = $\epsilon_{L}$ [euV]")
 plt.ylabel("$\Delta$")
 plt.gca().invert_xaxis()
 plt.legend()
