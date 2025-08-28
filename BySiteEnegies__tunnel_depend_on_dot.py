@@ -20,12 +20,13 @@ tL = 0  # ratio between GammaDD and GammaDD_L
 
 # [K]=[ueV]/kB -> U[K] = U[ueV]/kB
 U = 215
-T = 0.026 * U / kB  # K
+T = 0.016 * U / kB  # K
+kBT= kB*T
 
 # gammas are written as g = c*T where c isnt unitless
 # the actual relation ic given for is c/86.1733 where now c is unitless
 #right site only (0,0)<->(0,1) & (1,0)<->(1,1)
-gamma01 = 2*T
+gamma01 = 15*kB*T
 gamma23_set = [1*T]  # [1 * T, 2.2 * T, 5 * T, 10 * T
 
 #left site only (0,0)<->(1,0) & (0,1)<->(1,1)
@@ -113,7 +114,7 @@ for gamma23 in gamma23_set:
     y = cood[:, 1]
     Prob = cood[:, 2]
 
-    Plot2D = False
+    Plot2D = True
 
     if Plot2D:
         grid_x, grid_y = np.mgrid[min(x):max(x):100j, min(y):max(y):100j]
@@ -127,8 +128,8 @@ for gamma23 in gamma23_set:
 
         plt.xlabel("$\epsilon_{R}$ [euV]")
         plt.ylabel("$\epsilon_{L}$ [euV]")
-        plt.title("Charge imbalance, Vbias = " + str(int(eVm)) + "ueV, g01=" + str(gamma01 / T) + "T, g23=" + str(
-            gamma23 / T) + "T")
+        plt.title("Charge imbalance, Vbias = " + str(int(eVm)) + "ueV, g01=" + str(gamma01 / (kB*T)) + "kBT, g23=" + str(
+            gamma23 / (kB*T)) + "kbT")
 
         plt.gca().invert_yaxis()
         plt.gca().invert_xaxis()
@@ -137,9 +138,9 @@ for gamma23 in gamma23_set:
     else:
         cmap = cm.get_cmap('Reds_r')
         norm = plt.Normalize(min(gamma23_set), max(gamma23_set) + 8 * T)
-        plt.scatter(np.unique(x), alachson, color=cmap(norm(gamma23)), label="γ_23 = " + str(gamma23 / T) + " T")
+        plt.scatter(np.unique(x), alachson, color=cmap(norm(gamma23)), label="γ_23 = " + str(gamma23 / kBT) + " kBT")
 
-plt.title("Charge imbalance, Vbias = " + str(int(eVm)) + "ueV, γ_01=" + str(gamma01 / T) + "T\n" + "t_L = " + str(
+plt.title("Charge imbalance, Vbias = " + str(int(eVm)) + "ueV, γ_01=" + str(gamma01 / kBT) + "kBT\n" + "t_L = " + str(
     tL) + ", t_R = " + str(tR))
 plt.xlabel("$\epsilon_{R}$ = $\epsilon_{L}$ [euV]")
 plt.ylabel("$\Delta$")
