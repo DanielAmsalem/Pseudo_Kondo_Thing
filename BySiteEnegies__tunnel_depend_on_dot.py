@@ -5,6 +5,7 @@ from scipy.linalg import null_space
 import matplotlib.pyplot as plt
 from scipy.interpolate import griddata
 import matplotlib.cm as cm
+import math
 
 """
 this file describes a DQQ with hamiltonian
@@ -26,7 +27,7 @@ kBT= kB*T
 # gammas are written as g = c*T where c isnt unitless
 # the actual relation ic given for is c/86.1733 where now c is unitless
 #right site only (0,0)<->(0,1) & (1,0)<->(1,1)
-gamma01 = 15*kB*T
+gamma01 = 10*kBT
 gamma23_set = [1*T]  # [1 * T, 2.2 * T, 5 * T, 10 * T
 
 #left site only (0,0)<->(1,0) & (0,1)<->(1,1)
@@ -37,6 +38,16 @@ gamma13 = 0*T
 # V_bias = 0.35U
 eVm = 0.35 * U
 
+def rounder(x):
+    if x < 1e-6:
+        return 0
+    # Find exponent of first non-zero digit
+    exponent = math.floor(math.log10(x))
+
+    # Shift, round, shift back
+    rounded = round(x / (10 ** exponent)) * (10 ** exponent)
+
+    return rounded
 
 def Fermi_Function(e):
     global kB, T
@@ -128,8 +139,9 @@ for gamma23 in gamma23_set:
 
         plt.xlabel("$\epsilon_{R}$ [euV]")
         plt.ylabel("$\epsilon_{L}$ [euV]")
-        plt.title("Charge imbalance, Vbias = " + str(int(eVm)) + "ueV, g01=" + str(gamma01 / (kB*T)) + "kBT, g23=" + str(
-            gamma23 / (kB*T)) + "kbT")
+        plt.title("Charge imbalance\n Vm = " + str(int(eVm)) +
+                  "ueV, g01=" + str(rounder(gamma01 / (kB*T))) + "kBT, g23=" +
+                  str(rounder(gamma23 / (kB*T))) + "kbT")
 
         plt.gca().invert_yaxis()
         plt.gca().invert_xaxis()

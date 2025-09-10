@@ -22,10 +22,10 @@ kB = 86.1733  # [ueV/K]
 # [K]=[ueV]/kB -> U[K] = U[ueV]/kB
 U = 215
 T = 0.016 * U / kB  # K
-width = 0.00001  # controls width of straight line
-GammaL = 1 * T
-GammaR1 = 1 * T  # OUT
-GammaR2 = 0 * kB * T * width  # IN
+width = 0.01  # controls width of straight line
+GammaL = 10 * kB * T
+GammaR1 = 8 * kB * T * width  # OUT
+GammaR2 = 2 * kB * T * width  # IN
 
 # gammas due to P(E) : right site only (0,0)<->(0,1) & (1,0)<->(1,1)
 gamma01 = 0 * kB * T
@@ -40,8 +40,9 @@ eVm = 0.35 * U
 
 # voltage on right dot
 V0 = U / 10
-Vset = [10*V0, 5*V0, 2*V0, 0]  # 0.2*V0, 0.5*V0, 0.7*V0
-Vset = [0*V0, 2*V0]
+Vset = [10 * V0, 5 * V0, 2 * V0, 0]  # 0.2*V0, 0.5*V0, 0.7*V0
+Vset = [0, 2*V0, 5*V0]
+
 
 def rounder(x):
     if x < 1e-6:
@@ -54,22 +55,27 @@ def rounder(x):
 
     return rounded
 
+
 def Fermi_Function(e):
     global kB, T
     return 1 / (1 + np.exp(e / (kB * T)))
 
+
 def Modified_Fermi_Function(gamma, epsilon):
     global kB, T
-    if gamma < 1e-8:
+    if gamma < 1e-10:
         return Fermi_Function(epsilon)
     return 0.5 + numpy.imag(digamma(0.5 + (gamma - epsilon * 1j) / (2 * numpy.pi * kB * T))) / np.pi
 
 
 def right_in_out(eps, gamma_level, G1, G2, mu):
-    fin = Modified_Fermi_Function(gamma_level + G1 + G2, eps + mu / 2) * G1 + Modified_Fermi_Function(gamma_level + G1 + G2, eps - mu / 2) * G2
-    fout = (1.0 - Modified_Fermi_Function(gamma_level + G1 + G2, eps + mu / 2)) * G1 + (1.0 - Modified_Fermi_Function(gamma_level + G1 + G2, eps - mu / 2)) * G2
+    fin = Modified_Fermi_Function(gamma_level + G1 + G2, eps + mu / 2) * G1 + Modified_Fermi_Function(
+        gamma_level + G1 + G2, eps - mu / 2) * G2
+    fout = (1.0 - Modified_Fermi_Function(gamma_level + G1 + G2, eps + mu / 2)) * G1 + (
+                1.0 - Modified_Fermi_Function(gamma_level + G1 + G2, eps - mu / 2)) * G2
 
     return fin, fout
+
 
 def stationary_distribution(Gamm):
     """
@@ -92,9 +98,11 @@ def stationary_distribution(Gamm):
     return Ps
 
 
-VL = 0
-Energy_1 = np.linspace(-2, 0, 100) * U + eVm
-Energy_2 = np.linspace(-2, 0, 100) * U + eVm
+num = 100
+k = num ** 2
+VL = -120
+Energy_1 = np.linspace(-2, 0, num) * U + eVm
+Energy_2 = [VL]
 
 plt.figure(figsize=(8, 8))
 
@@ -105,6 +113,8 @@ for V in Vset:
 
     for eR in Energy_1:
         for eL in Energy_2:
+            print(k)
+            k -= 1
             site_1 = eR
             site_2 = eL
 
@@ -123,7 +133,7 @@ for V in Vset:
             Gammaij_normalized[3][2] = fout32
 
             # left dot transitions
-            Gammaij_normalized[0][2] = Modified_Fermi_Function(gamma02 + GammaL,  site_2) * GammaL
+            Gammaij_normalized[0][2] = Modified_Fermi_Function(gamma02 + GammaL, site_2) * GammaL
             Gammaij_normalized[2][0] = (1 - Modified_Fermi_Function(gamma02 + GammaL, site_2)) * GammaL
 
             Gammaij_normalized[1][3] = Modified_Fermi_Function(gamma13 + GammaL, site_2 + U) * GammaL
@@ -132,13 +142,11 @@ for V in Vset:
             P = stationary_distribution(Gammaij_normalized)
 
             prob = P[3] + P[1]
-            prob = 3 * P[3] + 2 * P[2] - 2 * P[1] - 3 * P[0]
+            #prob = 3 * P[3] + 2 * P[2] - 2 * P[1] - 3 * P[0]
 
             cood += [(eR, eL, prob)]
-
-            if eR==eL:
-                alachson += [prob]
-                x += [eR]
+            alachson += [prob]
+            x += [eR]
 
     cood = np.array(cood)
     #x = cood[:, 0]
@@ -160,9 +168,10 @@ for V in Vset:
 
         plt.xlabel("$\epsilon_{R}$ [euV]")
         plt.ylabel("$\epsilon_{L}$ [euV]")
-        plt.title("Charge imbalance, Vbias = " + str(round(V / U, 2)) + "*U\n" +
-                  "GammaL = " + str(rounder(GammaL / (kB * T))) + "kBT" +
-                  ", GammaR1 = " + str(rounder(GammaR1 / (kB * T))) + "kBT")
+        plt.title("Charge imbalance\n eVm = " + str(round(eVm / U, 2)) + "*U, eVbias = " + str(round(V / U, 2)) + "*U\n" +
+                  "ΓL = " + str(rounder(GammaL / (kB * T))) + "kBT" +
+                  ", ΓR1 = " + str(rounder(GammaR1 / (kB * T))) + "kBT" + ", ΓR2 = " +
+                  str(rounder(GammaR2 / (kB * T))) + "kBT")
 
         plt.gca().invert_yaxis()
         plt.gca().invert_xaxis()
@@ -171,10 +180,10 @@ for V in Vset:
     else:
         pass
     cmap = cm.get_cmap('Reds_r')
-    norm = plt.Normalize(min(Vset), max(Vset) + U/2)
+    norm = plt.Normalize(min(Vset), max(Vset) + U / 2)
     plt.scatter(x, alachson, color=cmap(norm(V)), label="V = " + str(round(V / U, 2)) + "*U")
 
-plt.title("Right dot population along $\epsilon_{L}$ = 0ueV\n"
+plt.title("Right dot population along $\epsilon_{L}$ = " + str(round(VL, 2)) + "µeV\n"
           + "GammaL = " + str(rounder(GammaL / (kB * T))) + "kBT" +
           ", GammaR1 = " + str(rounder(GammaR1 / (kB * T))) +
           "kBT, GammaR2 = " + str(rounder(GammaR2 / (kB * T))) + "kBT\n")
