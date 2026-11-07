@@ -208,17 +208,19 @@ def run_step_1b_core_verification(
         r=0.3, T_S=T_S_fixed, probe_profile=probe_profile, D_S_cutoff=D_S_cut,
         Gamma0=Gamma0, GammaS0=GammaS0, T_PG=T_PG_base, n_pg=300, n_s=150
     )
-    val_lyap = sol_chk.dn_d_dT(-0.005, target_bath="S", method="exact_lyapunov")
-    val_fd = sol_chk.dn_d_dT(-0.005, target_bath="S", method="finite_diff", rel_dT=1e-4)
-    val_schur = sol_chk.dn_d_dT(-0.005, target_bath="S", method="schur_lddl")
-    chk_str = (
-        f"Two-Bath Solver Cross-Check (M={sol_chk.dim}, r=+0.3, target_bath='S', eps_d=-0.005):\n"
-        f"  |FD - MatrixLyap| = {abs(val_fd - val_lyap):.3e}, "
-        f"|SchurLDDL - MatrixLyap| = {abs(val_schur - val_lyap):.3e}\n"
-    )
-    print(chk_str, flush=True)
-    log_lines.append(chk_str)
-    gc.collect()
+    ed_list = np.linspace(-0.3,0.3,51)
+    for ed in ed_list:
+        val_lyap = sol_chk.dn_d_dT(ed, target_bath="S", method="exact_lyapunov")
+        val_fd = sol_chk.dn_d_dT(ed, target_bath="S", method="finite_diff", rel_dT=1e-4)
+        val_schur = sol_chk.dn_d_dT(ed, target_bath="S", method="schur_lddl")
+        chk_str = (
+            f"Two-Bath Solver Cross-Check (M={sol_chk.dim}, r=+0.3, target_bath='S', eps_d={ed}):\n"
+            f"  |FD - MatrixLyap| = {abs(val_fd - val_lyap):.3e}, "
+            f"|SchurLDDL - MatrixLyap| = {abs(val_schur - val_lyap):.3e}\n"
+        )
+        print(chk_str, flush=True)
+        log_lines.append(chk_str)
+        gc.collect()
 
     results_1b = {
         "probe_profile": probe_profile,
