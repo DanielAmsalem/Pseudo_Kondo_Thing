@@ -21,14 +21,14 @@ tL = 0  # ratio between GammaDD and GammaDD_L
 
 # [K]=[ueV]/kB -> U[K] = U[ueV]/kB
 U = 215
-T = 0.016 * U / kB  # K
-kBT= kB*T
+T = 0.02 * U / kB  # K ; paper has 0.026
+kBT = kB*T
 
 # gammas are written as g = c*T where c isnt unitless
 # the actual relation ic given for is c/86.1733 where now c is unitless
 #right site only (0,0)<->(0,1) & (1,0)<->(1,1)
-gamma01 = 10*kBT
-gamma23_set = [1*T]  # [1 * T, 2.2 * T, 5 * T, 10 * T
+gamma01 = 0*T
+gamma23_set = [0*T]  # [1 * T, 2.2 * T, 5 * T, 10 * T
 
 #left site only (0,0)<->(1,0) & (0,1)<->(1,1)
 gamma02 = 0*T
@@ -39,13 +39,13 @@ gamma13 = 0*T
 eVm = 0.35 * U
 
 def rounder(x):
-    if x < 1e-6:
+    if x < 1e-10:
         return 0
     # Find exponent of first non-zero digit
-    exponent = math.floor(math.log10(x))
+    exponent = math.floor(math.log10(abs(x)))
 
     # Shift, round, shift back
-    rounded = round(x / (10 ** exponent)) * (10 ** exponent)
+    rounded = round(x, -exponent + 1)
 
     return rounded
 
@@ -125,7 +125,7 @@ for gamma23 in gamma23_set:
     y = cood[:, 1]
     Prob = cood[:, 2]
 
-    Plot2D = True
+    Plot2D = False
 
     if Plot2D:
         grid_x, grid_y = np.mgrid[min(x):max(x):100j, min(y):max(y):100j]
@@ -150,10 +150,11 @@ for gamma23 in gamma23_set:
     else:
         cmap = cm.get_cmap('Reds_r')
         norm = plt.Normalize(min(gamma23_set), max(gamma23_set) + 8 * T)
-        plt.scatter(np.unique(x), alachson, color=cmap(norm(gamma23)), label="γ_23 = " + str(gamma23 / kBT) + " kBT")
+        plt.scatter(np.unique(x), alachson, color=cmap(norm(gamma23)), label="γ_23 = " + str(rounder(gamma23 / kBT)) + " kBT")
 
-plt.title("Charge imbalance, Vbias = " + str(int(eVm)) + "ueV, γ_01=" + str(gamma01 / kBT) + "kBT\n" + "t_L = " + str(
-    tL) + ", t_R = " + str(tR))
+plt.title("Charge imbalance, Vbias = " + str(int(eVm)) + "ueV, γ_01=" + str(rounder(gamma01 / kBT)) + "kBT\n" + "t_L = " + str(
+    tL) + ", t_R = " + str(tR) + "\n" +
+          "T = " + str(T*kB/U) + "U/kB")
 plt.xlabel("$\epsilon_{R}$ = $\epsilon_{L}$ [euV]")
 plt.ylabel("$\Delta$")
 plt.gca().invert_xaxis()

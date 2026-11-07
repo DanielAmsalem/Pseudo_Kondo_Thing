@@ -1,0 +1,23 @@
+------------------------------------
+Fri 06 Nov 2026 01:05:09 IST
+SLURM_JOBID:		23936116
+SLURM_JOB_NODELIST:	ise-cpu256-07
+SLURM_SCRATCH_DIR:	/scratch/amsalda/23936116
+Allocated Resouces:	cpu - 64 / mem - 16384 MB / gpu - 
+SLURM_GPU_INDEX:	
+Running as amsalda from ymeir account with ymeir QOS
+------------------------------------
+Job started on: Fri 06 Nov 2026 01:05:09 IST
+SLURM_JOBID:		 23936116
+SLURM_JOB_NODELIST:	 ise-cpu256-07
+SLURM_CPUS_PER_TASK:	 64 
+
+
+Traceback (most recent call last):
+  File "/home/amsalda/PseudoGap/Computers/run_phase1_benchmarks.py", line 17, in <module>
+    from lyapunov_solver import LyapunovSolver
+  File "/home/amsalda/PseudoGap/Computers/lyapunov_solver.py", line 13, in <module>
+    from lyapunov_solver import LyapunovSolver
+ImportError: cannot import name 'LyapunovSolver' from partially initialized module 'lyapunov_solver' (most likely due to a circular import) (/home/amsalda/PseudoGap/Computers/lyapunov_solver.py)
+
+Job finished on: Fri 06 Nov 2026 01:05:10 IST

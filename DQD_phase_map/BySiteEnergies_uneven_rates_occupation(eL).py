@@ -21,11 +21,11 @@ kB = 86.1733  # [ueV/K]
 
 # [K]=[ueV]/kB -> U[K] = U[ueV]/kB
 U = 215
-T = 0.016 * U / kB  # K
+T = 0.033 * U / kB  # K ; paper has 0.026
 width = 0.01  # controls width of straight line
-GammaL = 10 * kB * T
-GammaR1 = 8 * kB * T * width  # OUT
-GammaR2 = 2 * kB * T * width  # IN
+GammaL = 0.002 * kB * T
+GammaR1 = 0.002 * kB * T   # OUT
+GammaR2 = 0.002 * kB * T   # IN
 
 # gammas due to P(E) : right site only (0,0)<->(0,1) & (1,0)<->(1,1)
 gamma01 = 0 * kB * T
@@ -41,7 +41,7 @@ eVm = 0.35 * U
 # voltage on right dot
 V0 = U / 10
 Vset = [10 * V0, 5 * V0, 2 * V0, 0]  # 0.2*V0, 0.5*V0, 0.7*V0
-Vset = [0, 2*V0, 5*V0]
+V = 2*U/3
 
 
 def rounder(x):
@@ -102,17 +102,16 @@ num = 100
 k = num ** 2
 VL = -120
 Energy_1 = np.linspace(-2, 0, num) * U + eVm
-Energy_2 = [VL]
+Energy_2 = [10, 0, -5, -50, -120, -170, -200, -210, -220]
 
 plt.figure(figsize=(8, 8))
 
-for V in Vset:
+for eL in Energy_2:
     cood = []
     alachson = []
     x = []
 
     for eR in Energy_1:
-        for eL in Energy_2:
             print(k)
             k -= 1
             site_1 = eR
@@ -148,7 +147,7 @@ for V in Vset:
             alachson += [prob]
             x += [eR]
 
-    cood = np.array(cood)
+    #cood = np.array(cood)
     #x = cood[:, 0]
     #y = cood[:, 1]
     #Prob = cood[:, 2]
@@ -179,11 +178,14 @@ for V in Vset:
         exit()
     else:
         pass
+    # cmap = cm.get_cmap('Reds_r')
+    # norm = plt.Normalize(min(Vset), max(Vset) + U / 2)
+    # plt.scatter(x, alachson, color=cmap(norm(V)), label="V = " + str(round(V / U, 2)) + "*U")
     cmap = cm.get_cmap('Reds_r')
-    norm = plt.Normalize(min(Vset), max(Vset) + U / 2)
-    plt.scatter(x, alachson, color=cmap(norm(V)), label="V = " + str(round(V / U, 2)) + "*U")
+    norm = plt.Normalize(min(Energy_2), max(Energy_2) + 100)
+    plt.scatter(x, alachson, color=cmap(norm(eL)), label=" $\epsilon_{L}$ = " + str(eL) + "ueV")
 
-plt.title("Right dot population along $\epsilon_{L}$ = " + str(round(VL, 2)) + "µeV\n"
+plt.title("Right dot population,  eVbias = " + str(round(V/U,2)) + "*U ; U = " + str(round(U/(kB*T))) + "kBT\n"
           + "GammaL = " + str(rounder(GammaL / (kB * T))) + "kBT" +
           ", GammaR1 = " + str(rounder(GammaR1 / (kB * T))) +
           "kBT, GammaR2 = " + str(rounder(GammaR2 / (kB * T))) + "kBT\n")

@@ -17,7 +17,7 @@ def Modified_Fermi_Function(gamma, epsilon):
 
 def y(x, v, g1, g2):
     """Weighted average of shifted Fermi functions"""
-    return (g1 * Modified_Fermi_Function(g1,x + v) + g2 * Modified_Fermi_Function(g2,x)) / (g1 + g2)
+    return (g1 * Modified_Fermi_Function(g1,x + v) + g2 * Modified_Fermi_Function(g2,BySiteEnegies__uneven_tunneling_rates.pyx)) / (g1 + g2)
 
 
 def plot_y_for_vs(v_list, g1, g2, xmin=-10, xmax=10, num_points=1000):

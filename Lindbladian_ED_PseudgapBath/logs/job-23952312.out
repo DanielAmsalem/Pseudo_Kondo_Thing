@@ -1,0 +1,21 @@
+------------------------------------
+Fri 06 Nov 2026 13:21:04 IST
+SLURM_JOBID:		23952312
+SLURM_JOB_NODELIST:	ise-cpu256-24
+SLURM_SCRATCH_DIR:	/scratch/amsalda/23952312
+Allocated Resouces:	cpu - 64 / mem - 61440 MB / gpu - 
+SLURM_GPU_INDEX:	
+Running as amsalda from ymeir account with ymeir QOS
+------------------------------------
+Job started on: Fri 06 Nov 2026 13:21:04 IST
+SLURM_JOBID:		 23952312
+SLURM_JOB_NODELIST:	 ise-cpu256-24
+SLURM_CPUS_PER_TASK:	 64 
+
+
+Traceback (most recent call last):
+  File "/home/amsalda/PseudoGap/Computers/run_phase2_benchmarks.py", line 87, in <module>
+    D_S_lorentz: Optional[float] = D_S_LORENTZ_DEFAULT,
+NameError: name 'Optional' is not defined
+
+Job finished on: Fri 06 Nov 2026 13:21:06 IST

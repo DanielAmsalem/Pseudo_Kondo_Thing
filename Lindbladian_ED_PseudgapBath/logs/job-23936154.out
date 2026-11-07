@@ -1,0 +1,18 @@
+------------------------------------
+Fri 06 Nov 2026 01:15:55 IST
+SLURM_JOBID:		23936154
+SLURM_JOB_NODELIST:	ise-cpu256-31
+SLURM_SCRATCH_DIR:	/scratch/amsalda/23936154
+Allocated Resouces:	cpu - 64 / mem - 61440 MB / gpu - 
+SLURM_GPU_INDEX:	
+Running as amsalda from ymeir account with ymeir QOS
+------------------------------------
+Job started on: Fri 06 Nov 2026 01:15:55 IST
+SLURM_JOBID:		 23936154
+SLURM_JOB_NODELIST:	 ise-cpu256-31
+SLURM_CPUS_PER_TASK:	 64 
+
+
+/var/spool/slurmd/job23936154/slurm_script: line 47: 3511352 Segmentation fault      (core dumped) /home/amsalda/.conda/envs/my_env/bin/python /home/amsalda/PseudoGap/Computers/run_phase2_benchmarks.py
+
+Job finished on: Fri 06 Nov 2026 01:15:58 IST

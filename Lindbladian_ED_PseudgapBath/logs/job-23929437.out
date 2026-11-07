@@ -1,0 +1,39 @@
+------------------------------------
+Thu 05 Nov 2026 17:02:20 IST
+SLURM_JOBID:		23929437
+SLURM_JOB_NODELIST:	ise-cpu256-28
+SLURM_SCRATCH_DIR:	/scratch/amsalda/23929437
+Allocated Resouces:	cpu - 64 / mem - 16384 MB / gpu - 
+SLURM_GPU_INDEX:	
+Running as amsalda from ymeir account with ymeir QOS
+------------------------------------
+Job started on: Thu 05 Nov 2026 17:02:22 IST
+SLURM_JOBID:		 23929437
+SLURM_JOB_NODELIST:	 ise-cpu256-28
+SLURM_CPUS_PER_TASK:	 64 
+
+
+==============================================================================
+STEP 1c: Bare Hybridization, Kramers-Kronig Self-Energy & QRT Spectral Function
+==============================================================================
+     r | N_modes | RelErr Gamma(w) | MaxErr A_freq vs Cont | MaxDiff QRT-FFT vs Freq | SumRule Int A(w)dw
+------------------------------------------------------------------------------------------------------
+ -0.30 |     518 |      1.1343e-02 |            5.2112e-02 |              9.4552e-04 |           1.000005
+  0.00 |     518 |      1.6091e-02 |            1.7347e-01 |              2.2085e-03 |           1.000090
+  0.30 |     518 |      3.5952e-02 |            7.7328e-01 |              8.1662e-03 |           0.999913
+  0.50 |     518 |      5.3131e-02 |            2.2505e+00 |              8.8497e-03 |           1.000061
+
+==============================================================================
+STEP 1a: Power-Law Bath Alone — Lyapunov dN/dT & Maxwell Entropy S(eps_d), S(0)
+==============================================================================
+Fixed Temperature Protocol Check at T = 0.002, Gate Sweep [-12.0, 0]:
+     r | N_modes | Max |dN/dT_FD - dN/dT_Lyap| |    S_num(0) | S_ana(0, fin D,eps_max) | S_ana(0, Eq.7 D->inf) | Low-T r*ln(2)
+----------------------------------------------------------------------------------------------------------------------------
+ -0.30 |     832 |                  4.2918e-06 |    -0.18769 |                -0.20465 |              -0.20555 |      -0.20794
+  0.00 |     832 |                  6.8722e-07 |     0.01452 |                 0.01262 |               0.01395 |       0.00000
+  0.30 |     832 |                  7.5987e-07 |     0.23340 |                 0.25084 |               0.25709 |       0.20794
+  0.50 |     832 |                  4.9974e-07 |     0.36924 |                 0.41149 |               0.42364 |       0.34657
+
+Saved 6-panel Phase 1 verification figure to 'phase1_verification.png'.
+
+Job finished on: Thu 05 Nov 2026 17:12:27 IST

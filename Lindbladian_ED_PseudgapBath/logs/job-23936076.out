@@ -1,0 +1,18 @@
+------------------------------------
+Fri 06 Nov 2026 00:55:20 IST
+SLURM_JOBID:		23936076
+SLURM_JOB_NODELIST:	ise-cpu256-12
+SLURM_SCRATCH_DIR:	/scratch/amsalda/23936076
+Allocated Resouces:	cpu - 64 / mem - 16384 MB / gpu - 
+SLURM_GPU_INDEX:	
+Running as amsalda from ymeir account with ymeir QOS
+------------------------------------
+Job started on: Fri 06 Nov 2026 00:55:20 IST
+SLURM_JOBID:		 23936076
+SLURM_JOB_NODELIST:	 ise-cpu256-12
+SLURM_CPUS_PER_TASK:	 64 
+
+
+/var/spool/slurmd/job23936076/slurm_script: line 47: 1070738 Segmentation fault      (core dumped) /home/amsalda/.conda/envs/my_env/bin/python /home/amsalda/PseudoGap/Computers/run_phase2_benchmarks.py
+/var/spool/slurmd/job23936076/slurm_script: line 49: unexpected EOF while looking for matching `)'
+/var/spool/slurmd/job23936076/slurm_script: line 50: syntax error: unexpected end of file
