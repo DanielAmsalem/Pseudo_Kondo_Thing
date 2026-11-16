@@ -12,7 +12,7 @@ WHAT THIS MODULE DOES PHYSICALLY
 --------------------------------
 In an analytical calculation, a lead is treated as a continuous bath of fermionic
 modes characterized by a continuous hybridization function (spectral density):
-    Gamma(omega) = pi sum_n : |v_n|^2 * delta(omega - epsilon_n) = Gamma_0 * |omega|^r   for |omega| <= D.
+    Gamma(w) = pi * (sum_n : |v_n|^2 * delta(w - epsilon_n)) = Gamma_0 * |w|^r   for |w| <= D.
 
 We represent this continuous bath using a FINITE number (N_modes)
 of discrete tight-binding modes in the "Star Geometry" (RL-NESS Eqs. 8-9):
@@ -22,19 +22,21 @@ of discrete tight-binding modes in the "Star Geometry" (RL-NESS Eqs. 8-9):
 `Bath` performs the two-stage discretization procedure from RL-NESS Appendix A:
   Stage 1 (Grid Generation):
       Slices the continuous energy band [-D, +D] into N_modes non-overlapping
-      energy intervals (bins) I_n = [a_n, b_n] of width \delta_n = b_n - a_n.
+      energy intervals (bins) I_n = [a_n, b_n] of width delta_n = b_n - a_n.
   Stage 2 (Moment Integration & Lindblad Broadening):
       Replaces each energy interval I_n = [a_n, b_n] by a SINGLE representative
       tight-binding mode c_n whose hopping amplitude v_n and on-site energy epsilon_n
-      preserve the exact zeroth and first moments of Gamma(omega) across that bin:
-          |v_n|^2 = 1\pi * int_{a_n}^{b_n} : Gamma(w) dw
-          epsilon_n = int_{a_n}^{b_n} : w * Gamma(w) dw
-                    / int_{a_n}^{b_n} : Gamma(w) dw
+      preserve the exact zeroth and first moments of Gamma(w) across that bin:
+          |v_n|^2 = (1 / pi) * (int_{a_n}{b_n} : Gamma(w) dw)
+          epsilon_n = (int_{a_n}{b_n} : w * Gamma(w) dw)
+                    / (int_{a_n}{b_n} : Gamma(w) dw)
       Finally, to make the finite set of discrete levels behave as a true open thermal
       reservoir at temperature T and chemical potential mu, each mode c_n is coupled
-      to a local Lindblad dissipator with damping/broadening rate gamma_n,(LDDL Eqs. 39-45)
+      to a local Lindblad dissipator with damping/broadening rate gamma_n (LDDL Eqs. 39-45)
       which broadens each discrete pole into a Lorentzian of width gamma_n.
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Literal, Optional, Tuple
@@ -45,7 +47,7 @@ DiscretizationType = Literal["log_linear", "linear", "log"]
 GammaRuleType = Literal["adaptive", "capped_adaptive", "uniform"]
 
 # Precomputed 16-point Gauss-Legendre nodes and weights mapped from [-1, 1] -> [0, 1].
-# Used to integrate custom or IR-regularized hybridization functions \Gamma(\omega)
+# Used to integrate custom or IR-regularized hybridization functions Gamma(w)
 # over each energy bin [a_n, b_n] in vectorized NumPy without calling Fortran QUADPACK.
 _GL_NODES_01, _GL_WEIGHTS_01 = np.polynomial.legendre.leggauss(16)
 _GL_NODES_01 = 0.5 * (_GL_NODES_01 + 1.0)
@@ -57,28 +59,35 @@ class Bath:
     """
     A single discretized fermionic tight-binding bath coupled to the impurity
     and driven by local Lindblad reservoirs.
+
+    Parameters
+    ----------
+    name : str
+        Identifier for the bath (e.g., "PG" for power-law bath, "S" for probe lead).
+    Gamma0 : float
+        Hybridization prefactor Gamma_0 (in energy units).
     r : float
         Power-law exponent (-1 < r < 1):
-          - r > 0 : Pseudogap bath (density of states vanishes at omega = 0).
+          - r > 0 : Pseudogap bath (density of states vanishes at w = 0).
           - r = 0 : Flat metallic lead (Gamma(w) = Gamma_0 = const).
-          - r < 0 : Divergent power-law DOS
+          - r < 0 : Divergent power-law DOS.
     T : float
-        Bath temperature T_\alpha (in units where k_B = 1). Enters the Fermi-Dirac
+        Bath temperature T_alpha (in units where k_B = 1). Enters the Fermi-Dirac
         distribution f_alpha(epsilon_n) that sets the Lindblad filling/emptying rates.
     mu : float
         Bath chemical potential mu_alpha (Fermi energy of this lead, default 0.0).
     D : float
         Ultraviolet (UV) half-bandwidth cutoff D_alpha. Tight-binding modes are generated
-        strictly inside the energy interval [-D, +D], so Gamma(omega) = 0 for |omega| > D.
+        strictly inside the energy interval [-D, +D], so Gamma(w) = 0 for |w| > D.
     omega_ir : float
         Optional infrared (IR) regularization cutoff w_ir >= 0 (default 0.0).
-        If w_ir > 0, replaces |w|^r with (w^2 + w_ir^2)^{r/2},
+        If w_ir > 0, replaces |w|^r with (w^2 + w_ir^2)^{r/2}.
     discretization : {"log_linear", "linear", "log"}
         Scheme used to partition the energy band [-D, +D] into discrete intervals:
           - "linear":     Uniform bin width delta across the entire band [-D, +D].
           - "log":        Wilson NRG logarithmic grid with bin edges at +- D * Lambda^{-n}.
           - "log_linear": Hybrid grid (RL-NESS Appendix A, Eq. A1) with uniform spacing
-                          delta inside the low-energy window [-D^*, +D^*] and smooth
+                          delta inside the low-energy window [-D*, +D*] and smooth
                           exponentially growing bins ~Lambda^n up to +- D.
     target_n_modes : Optional[int]
         Total number of discrete tight-binding modes N_modes desired across [-D, +D].
@@ -86,38 +95,30 @@ class Bath:
         exact spacing parameters (delta, Lambda, N_log) to produce `target_n_modes` modes.
     D_star : Optional[float]
         Half-width D* of the uniform linear discretization window [-D*, +D*] in the
-        "log_linear" scheme (denoted D* in RL-NESS Fig. 2b' and E^* in LDDL Fig. 9).
-        Should be chosen several times larger than T
+        "log_linear" scheme (denoted D* in RL-NESS Fig. 2b' and E* in LDDL Fig. 9).
     delta : float
         Uniform energy bin width delta inside the linear window [-D*, +D*] (for
         "log_linear") or across the full band [-D, +D] (for "linear").
     Lambda : float
         Logarithmic discretization parameter Lambda > 1 (Wilson's NRG parameter).
         Controls how rapidly bin widths expand (delta_n ~ Lambda^n) at high
-        energies |omega| > D*. Values closer to 1.0 give finer high-energy grids.
+        energies |w| > D*. Values closer to 1.0 give finer high-energy grids.
     N_log : int
-        Number of logarithmic energy shells on each side of omega = 0 when using pure
-        "log" discretization (the minimum resolved energy is D Lambda^{-N_log}).
+        Number of logarithmic energy shells on each side of w = 0 when using pure
+        "log" discretization (the minimum resolved energy is D * Lambda^{-N_log}).
     z_shift : float
         NRG z-shift offset parameter z in [0, 1) (Oliveira & Oliveira, PRB 1994;
         RL-NESS Appendix A, Eq. A1). Shifts the integer interval index n -> n + z
         when placing the logarithmic bin boundaries I_n = [f(n + z), f(n + 1 + z)].
-        In coarse logarithmic grids (Lambda ~ 2-6), sliding z in [0, 1) shifts the
-        comb of discrete energies across the band so that averaging over several z values
-        ("z-averaging") cancels out logarithmic discretization oscillations. For fine
-        grids (N_modes ~ 10,000, Lambda ~ 1.002), z_shift = 0.0 is already smooth.
     gamma_rule : {"adaptive", "capped_adaptive", "uniform"}
         Rule for assigning the Lindblad damping/broadening rate gamma_n to mode n:
           - "adaptive":        gamma_n = c_gamma * delta_n (each mode's Lorentzian width
                                scales with its own bin width delta_n; LDDL Eq. 45).
-          - "capped_adaptive": gamma_n = min(c_gamma * delta_n, gamma_max). Prevents
-                               wide high-energy logarithmic bins near |epsilon_n| ~ D
-                               from having huge Lorentzian widths that leak 1/w^2
-                               tails back into the low-energy thermal window |w| ~ T
-                               (see LDDL Appendix A).
-          - "uniform":         gamma_n = c_gamma * delta (constant damping rate across
-                               all modes; required when mapping to a local 1D Wilson chain
-                               in RL-NESS Sec. II C / LDDL Sec. IV).
+          - "capped_adaptive": gamma_n = min(c_gamma * delta_n, gamma_max). By default,
+                               gamma_max = 2 * c_gamma * delta so high-energy logarithmic
+                               modes do not leak 1/w^2 Lorentzian tails into the low-energy
+                               pseudogap around w = 0 (LDDL Appendix A; RL-NESS Sec. II C).
+          - "uniform":         gamma_n = c_gamma * delta.
     c_gamma : float
         Dimensionless ratio gamma_n / delta_n (~1.0 to 1.5; LDDL Fig. 2 & Eq. 45).
     gamma_max : Optional[float]
@@ -125,24 +126,9 @@ class Bath:
     custom_shape : Optional[Callable[[np.ndarray], np.ndarray]]
         Optional dimensionless frequency profile g_alpha(w) overriding |w|^r:
             Gamma_alpha(w) = Gamma_0 * g_alpha(w)   for |w| <= D.
-        For example, a Lorentzian probe bath of cutoff width D_S uses:
-            custom_shape = lambda w: 1.0 / (1.0 + (w / D_S)**2).
-
-    Attributes Computed Automatically on Initialization
-    ---------------------------------------------------
-    bins : np.ndarray, shape (N_modes, 2)
-        The [a_n, b_n] energy interval boundaries for each discrete mode n.
-    bin_widths : np.ndarray, shape (N_modes,)
-        Width delta_n = b_n - a_n of each energy bin.
-    epsilons : np.ndarray, shape (N_modes,)
-        Tight-binding on-site energies epsilon_n (in ascending order from -D to +D).
-    v : np.ndarray, shape (N_modes,)
-        Tight-binding hopping amplitudes v_n coupling mode c_n to the impurity d.
-    gammas : np.ndarray, shape (N_modes,)
-        Lindblad damping/broadening rates gamma_n for each mode c_n.
     """
     name: str = "PG"
-    Gamma0: float = 0.25 # Hybridization prefactor
+    Gamma0: float = 0.25
     r: float = 0.0
     T: float = 0.002
     mu: float = 0.0
@@ -172,7 +158,7 @@ class Bath:
 
         # Default linear window half-width D* covers at least 8T around w = 0
         if self.D_star is None:
-            self.D_star = min(0.4 * self.D, max(8.0 * self.T, 0.015 * self.D))
+            self.D_star = min(0.25 * self.D, max(8.0 * self.T, 0.015 * self.D))
 
         # If a specific total mode count (e.g., 10,000) was requested, solve for (delta, Lambda)
         if self.target_n_modes is not None:
@@ -196,18 +182,21 @@ class Bath:
             return
 
         if self.discretization == "log_linear":
-            # Place 40% of the positive modes uniformly inside [0, D^*] with spacing \delta,
-            # and 60% of the positive modes in the sinh-logarithmic region [D^*, D].
+            # Place 40% of the positive modes uniformly inside [0, D*] with spacing delta,
+            # and 60% of the positive modes in the sinh-logarithmic region [D*, D].
             n_lin = max(5, int(0.4 * n_half))
             n_log = max(5, n_half - n_lin)
             self.delta = self.D_star / n_lin
             span = self.D - self.D_star
-            if span <= 0.0 or n_log * self.delta >= span:
+
+            # If D* >= 0.4 * D, then n_log * delta >= span (Lambda <= 1), so a uniform
+            # linear grid across [0, D] already provides finer or equal resolution.
+            if span <= 0.0 or n_log * self.delta >= 0.9999 * span:
                 self.discretization = "linear"
                 self.delta = self.D / n_half
                 return
 
-            # In RL-NESS Eq. (A1), the n_log-th boundary above D^* sits at:
+            # In RL-NESS Eq. (A1), the n_log-th boundary above D* sits at:
             #     f(x* + n_log) = (delta / ln Lambda) * sinh(n_log * ln Lambda) + D* = D.
             # We solve this equation for u = ln Lambda > 0 using Brent's root-finding method.
             def residual(u: float) -> float:
@@ -216,8 +205,14 @@ class Bath:
                 arg = min(700.0, n_log * u)
                 return (self.delta / u) * np.sinh(arg) - span
 
+            u_min = 1e-12
             u_max = 600.0 / n_log
-            u_sol = optimize.brentq(residual, 1e-10, u_max)
+            if residual(u_min) >= 0.0:
+                self.discretization = "linear"
+                self.delta = self.D / n_half
+                return
+
+            u_sol = optimize.brentq(residual, u_min, u_max)
             self.Lambda = float(np.exp(u_sol))
 
     def continuum_gamma(self, omega: np.ndarray | float) -> np.ndarray:
@@ -248,8 +243,8 @@ class Bath:
 
     def dfermi_dT(self, omega: np.ndarray | float, T_override: Optional[float] = None) -> np.ndarray:
         """
-        Exact temperature derivative of the Fermi-Dirac distribution
-        Used when differentiating the Lyapunov equation with respect to bath-temperature T_a.
+        Exact temperature derivative of the Fermi-Dirac distribution.
+        Used when differentiating the Lyapunov equation with respect to bath temperature T_a.
         """
         T_val = self.T if T_override is None else T_override
         if T_val <= 0.0:
@@ -267,12 +262,10 @@ class Bath:
         partitioning the positive half-band [0, +D] into N/2 intervals I_n = [e_{n-1}, e_n].
         """
         if self.discretization == "linear":
-            # Uniformly spaced intervals of width \delta from 0 to D
             n_half = max(1, int(np.round(self.D / self.delta)))
             return np.linspace(0.0, self.D, n_half + 1)
 
         if self.discretization == "log":
-            # Wilson NRG logarithmic grid: boundaries at 0, D \Lambda^{-(N_log - z)}, ..., D \Lambda^{-(1 - z)}, D
             if self.Lambda <= 1.0:
                 raise ValueError("Logarithmic discretization requires Lambda > 1.")
             exponents = np.arange(self.N_log, -1, -1, dtype=float) - self.z_shift
@@ -281,10 +274,6 @@ class Bath:
             return np.unique(np.concatenate(([0.0], edges, [self.D])))
 
         if self.discretization == "log_linear":
-            # RL-NESS Appendix A, Eq. (A1) smooth hybrid linear-to-logarithmic grid:
-            #   f(x) = delta * x                                               for x <= x* = D* / delta
-            #   f(x) = (delta / ln Lambda) * sinh[(x - x*) ln Lambda] + D*  for x >  x* = D* / delta
-            # Evaluated at x = n + z_shift for integer n = 1, 2, ... up to D.
             if self.Lambda <= 1.0:
                 raise ValueError("log_linear discretization requires Lambda > 1.")
             x_star = self.D_star / self.delta
@@ -315,8 +304,8 @@ class Bath:
         """
         Stage 2 of Discretization:
         For each positive energy bin I_n = [a_n, b_n] in [0, D], compute:
-          1. Total coupling weight W_n = int_{a_n}^{b_n} : Gamma(w) dw -> v_n = sqrt{W_n / pi}.
-          2. First energy moment  M_n = int_{a_n}^{b_n} : w * Gamma(w) dw -> epsilon_n = M_n / W_n.
+          1. Total coupling weight W_n = int_{a_n}{b_n} : Gamma(w) dw -> v_n = sqrt(W_n / pi).
+          2. First energy moment  M_n = int_{a_n}{b_n} : w * Gamma(w) dw -> epsilon_n = M_n / W_n.
         Then mirror the positive bins onto [-D, 0] to guarantee exact particle-hole symmetry
         (epsilon_{-n} = -epsilon_n, v_{-n} = v_n), and assign the Lindblad rates gamma_n.
         """
@@ -326,13 +315,9 @@ class Bath:
         pos_widths = b - a
 
         if self.custom_shape is None and self.omega_ir <= 0.0:
-            # Exact analytical antiderivatives for a pure power law \Gamma(\omega) = \Gamma_0 \omega^r on [a_n, b_n]:
-            #   W_n = \Gamma_0 (b_n^{r+1} - a_n^{r+1}) / (r + 1)
-            #   M_n = \Gamma_0 (b_n^{r+2} - a_n^{r+2}) / (r + 2)
             w_int = self.Gamma0 * (b ** (self.r + 1.0) - a ** (self.r + 1.0)) / (self.r + 1.0)
             m_int = self.Gamma0 * (b ** (self.r + 2.0) - a ** (self.r + 2.0)) / (self.r + 2.0)
         else:
-            # Vectorized 16-point Gauss-Legendre quadrature across all bins [a_n, b_n] simultaneously
             pts = a[:, None] + pos_widths[:, None] * _GL_NODES_01[None, :]
             gam_pts = self.continuum_gamma(pts)
             w_int = pos_widths * (gam_pts @ _GL_WEIGHTS_01)
@@ -341,7 +326,6 @@ class Bath:
         pos_v2 = w_int / np.pi
         pos_eps = np.where(w_int > 0.0, m_int / w_int, 0.5 * (a + b))
 
-        # Mirror positive bins onto negative energies [-b_n, -a_n] so modes are ordered from -D to +D
         neg_bins = np.column_stack((-pos_edges[1:][::-1], -pos_edges[:-1][::-1]))
         pos_bins = np.column_stack((pos_edges[:-1], pos_edges[1:]))
         self.bins = np.vstack((neg_bins, pos_bins))
@@ -349,11 +333,13 @@ class Bath:
         self.epsilons = np.concatenate((-pos_eps[::-1], pos_eps))
         self.v = np.sqrt(np.concatenate((pos_v2[::-1], pos_v2)))
 
-        # Assign Lindblad damping/broadening rates \gamma_n for each mode
         if self.gamma_rule == "adaptive":
             self.gammas = self.c_gamma * self.bin_widths
         elif self.gamma_rule == "capped_adaptive":
-            g_max = self.gamma_max if self.gamma_max is not None else max(0.5 * self.T, 10.0 * self.delta)
+            # Cap high-energy logarithmic bin broadenings at 2 * c_gamma * delta so distant
+            # UV modes near |epsilon_n| ~ D cannot leak 1/w^2 Lorentzian tails into the
+            # low-energy thermal window |w| ~ T for r > 0 (LDDL Appendix A; RL-NESS Sec. II C).
+            g_max = self.gamma_max if self.gamma_max is not None else (2.0 * self.c_gamma * self.delta)
             self.gammas = np.minimum(self.c_gamma * self.bin_widths, g_max)
         elif self.gamma_rule == "uniform":
             self.gammas = np.full_like(self.epsilons, self.c_gamma * self.delta)
@@ -383,10 +369,6 @@ class Bath:
         lam2 = self.gammas * f_q
         return lam1, lam2
 
-    # =========================================================================
-    # Convenience Bridges to the 1D Tight-Binding Chain Geometry (t <-> v)
-    # =========================================================================
-
     def to_chain(self, max_chain_len: Optional[int] = None, reorthogonalize: bool = True):
         """
         Tridiagonalize this bath's Star-Geometry parameters (epsilon_n, v_n) into
@@ -402,9 +384,9 @@ class Bath:
         )
 
     def to_lddl_particle_hole_chains(
-            self,
-            T_override: Optional[float] = None,
-            max_chain_len: Optional[int] = None,
+        self,
+        T_override: Optional[float] = None,
+        max_chain_len: Optional[int] = None,
     ) -> Dict[str, object]:
         """
         Map this thermal bath into separate filled ("particle") and empty ("hole")

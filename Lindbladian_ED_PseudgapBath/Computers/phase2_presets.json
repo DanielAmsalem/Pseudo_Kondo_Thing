@@ -1,0 +1,92 @@
+{
+  "low_T_default": {
+    "preset_name": "low_T_default",
+    "description": "Low-T_S default with D_S = D = D* = 1.0, Gamma0 = 0.1D, GS0 = T_PG = 1e-4D, T_S = 1e-3D",
+    "D": 1.0,
+    "Gamma0": 1.0,
+    "GammaS0": 0.0001,
+    "D_S_cut": 1.0,
+    "T_PG": 0.0001,
+    "T_S_fixed": 0.001,
+    "T_S_over_D_range": [
+      0.0001,
+      1.0
+    ],
+    "GS_over_G0_range": [
+      0.001,
+      0.1
+    ],
+    "T_PG_over_D_list": [
+      0.0001,
+      0.005,
+      0.05
+    ],
+    "D_S_over_D_list": [
+      0.001,
+      0.01,
+      0.1,
+      1.0
+    ],
+    "file_suffix": ""
+  },
+  "high_T_plateau": {
+    "preset_name": "high_T_plateau",
+    "description": "High-T_S S=ln2 plateau preset (D = D*/20 = 0.05, Gamma0 = D = 0.05, GS0 = T_MIN, Ds = 20D)",
+    "D": 0.05,
+    "Gamma0": 0.05,
+    "GammaS0": 0.0001,
+    "D_S_cut": 1.0,
+    "T_PG": 0.0001,
+    "T_S_fixed": 0.0005,
+    "T_S_over_D_range": [
+      0.002,
+      20.0
+    ],
+    "GS_over_G0_range": [
+      0.002,
+      0.2
+    ],
+    "T_PG_over_D_list": [
+      0.002,
+      0.02,
+      0.2
+    ],
+    "D_S_over_D_list": [
+      0.1,
+      1.0,
+      10.0,
+      20.0
+    ],
+    "file_suffix": "_high_T_plateau"
+  },
+  "scaled_D01": {
+    "preset_name": "scaled_D01",
+    "description": "Rescaled D = D*/10 = 0.1, Gamma0 = 2.5D = 0.25, GS0 = T_PG = D/1000, Ds = 10D, T_S = 0.01D",
+    "D": 0.1,
+    "Gamma0": 0.25,
+    "GammaS0": 0.0001,
+    "D_S_cut": 1.0,
+    "T_PG": 0.0001,
+    "T_S_fixed": 0.001,
+    "T_S_over_D_range": [
+      0.001,
+      10.0
+    ],
+    "GS_over_G0_range": [
+      0.0004,
+      0.1
+    ],
+    "T_PG_over_D_list": [
+      0.001,
+      0.05,
+      0.5
+    ],
+    "D_S_over_D_list": [
+      0.01,
+      0.1,
+      1.0,
+      10.0
+    ],
+    "file_suffix": "_scaled_D01"
+  }
+}

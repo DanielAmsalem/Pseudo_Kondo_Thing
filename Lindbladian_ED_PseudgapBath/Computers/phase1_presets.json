@@ -1,0 +1,59 @@
+{
+  "low_T_default": {
+    "preset_name": "low_T_default",
+    "description": "Single-bath default with D_bath = D = D* = 1.0, Gamma0 = 0.1D, T_fixed = 1e-3D",
+    "D": 1.0,
+    "Gamma0": 0.1,
+    "D_bath": 1.0,
+    "T_fixed": 0.001,
+    "T_over_D_range": [
+      0.0001,
+      1.0
+    ],
+    "D_bath_over_D_list": [
+      0.001,
+      0.01,
+      0.1,
+      1.0
+    ],
+    "file_suffix": ""
+  },
+  "high_T_plateau": {
+    "preset_name": "high_T_plateau",
+    "description": "Single-bath high-T S=ln2 plateau preset (D = D*/20 = 0.05, Gamma0 = D = 0.05, D_bath = 20D = D*)",
+    "D": 0.05,
+    "Gamma0": 0.05,
+    "D_bath": 1.0,
+    "T_fixed": 0.0005,
+    "T_over_D_range": [
+      0.002,
+      20.0
+    ],
+    "D_bath_over_D_list": [
+      0.1,
+      1.0,
+      10.0,
+      20.0
+    ],
+    "file_suffix": "_high_T_plateau"
+  },
+  "scaled_D01": {
+    "preset_name": "scaled_D01",
+    "description": "Rescaled D = D*/10 = 0.1, Gamma0 = 2.5D = 0.25, D_bath = 10D = D*, T_fixed = 0.01D",
+    "D": 0.1,
+    "Gamma0": 0.25,
+    "D_bath": 1.0,
+    "T_fixed": 0.001,
+    "T_over_D_range": [
+      0.001,
+      10.0
+    ],
+    "D_bath_over_D_list": [
+      0.01,
+      0.1,
+      1.0,
+      10.0
+    ],
+    "file_suffix": "_scaled_D01"
+  }
+}
