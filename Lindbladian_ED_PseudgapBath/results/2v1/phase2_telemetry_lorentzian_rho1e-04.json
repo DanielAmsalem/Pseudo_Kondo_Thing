@@ -1,0 +1,35 @@
+{
+  "stage": "lorentzian | rho1e-04",
+  "run_on_slurm": false,
+  "hardware": {
+    "max_cpu": 18,
+    "n_workers": 16,
+    "reserved_cpus": 2,
+    "total_ram_gb": 64.0,
+    "peak_rss_mb": 872.09,
+    "initial_load_1m": 23.55,
+    "final_load_1m": 22.94
+  },
+  "timings": {
+    "total_tasks": 177,
+    "total_wall_sec": 3.842,
+    "cumulative_worker_cpu_sec": 57.36,
+    "parallel_efficiency": 0.933,
+    "mean_task_sec": 0.3241,
+    "max_task_sec": 0.3528
+  },
+  "contention_events": [
+    {
+      "completed_tasks": 144,
+      "elapsed_sec": 3.01,
+      "parallel_efficiency": 0.9774,
+      "load_1m": 22.94
+    },
+    {
+      "completed_tasks": 177,
+      "elapsed_sec": 3.67,
+      "parallel_efficiency": 0.978,
+      "load_1m": 22.94
+    }
+  ]
+}

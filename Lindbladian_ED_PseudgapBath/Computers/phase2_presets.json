@@ -88,5 +88,281 @@
       10.0
     ],
     "file_suffix": "_scaled_D01"
+  },
+  "rho1e-03_logSqueeze": {
+    "preset_name": "rho1e-03_logSqueeze",
+    "description": "Option A (Log-Scale Squeeze, GS0/G0=5.62e-03) | D*=1, rho=T_min/D*=1.0e-03, Gamma0=0.1778, GammaS0=1.0e-03, T_S_fixed=0.005623",
+    "rho": 0.001,
+    "fix_g0_over_gs": false,
+    "D": 1.0,
+    "D_star": 1.0,
+    "T_min": 0.001,
+    "Gamma0": 0.1778279410038923,
+    "GammaS0": 0.001,
+    "D_S_cut": 1.0,
+    "T_PG": 0.001,
+    "T_S_fixed": 0.005623413251903491,
+    "T_S_over_D_range": [
+      0.001,
+      1.0
+    ],
+    "GS_over_G0_range": [
+      0.00562341325190349,
+      0.1
+    ],
+    "T_PG_over_D_list": [
+      0.001,
+      0.010000000000000002,
+      0.10000000000000002
+    ],
+    "D_S_over_D_list": [
+      0.001,
+      0.010000000000000002,
+      0.10000000000000002,
+      1.0
+    ],
+    "file_suffix": "_rho1e-03_logSqueeze"
+  },
+  "rho1e-03_fixedRatio": {
+    "preset_name": "rho1e-03_fixedRatio",
+    "description": "Option B (Fixed GS0/G0=1.0e-03) | D*=1, rho=T_min/D*=1.0e-03, Gamma0=1, GammaS0=1.0e-03, T_S_fixed=0.01",
+    "rho": 0.001,
+    "fix_g0_over_gs": true,
+    "D": 1.0,
+    "D_star": 1.0,
+    "T_min": 0.001,
+    "Gamma0": 1.0,
+    "GammaS0": 0.001,
+    "D_S_cut": 1.0,
+    "T_PG": 0.001,
+    "T_S_fixed": 0.01,
+    "T_S_over_D_range": [
+      0.001,
+      1.0
+    ],
+    "GS_over_G0_range": [
+      0.001,
+      0.1
+    ],
+    "T_PG_over_D_list": [
+      0.001,
+      0.010000000000000002,
+      0.10000000000000002
+    ],
+    "D_S_over_D_list": [
+      0.001,
+      0.010000000000000002,
+      0.10000000000000002,
+      1.0
+    ],
+    "file_suffix": "_rho1e-03_fixedRatio"
+  },
+  "rho5e-03_fixedRatio": {
+    "preset_name": "rho5e-03_fixedRatio",
+    "description": "Option B (Fixed GS0/G0=5.0e-03) | D*=1, rho=T_min/D*=5.0e-03, Gamma0=1, GammaS0=5.0e-03, T_S_fixed=0.05",
+    "rho": 0.005,
+    "fix_g0_over_gs": true,
+    "D": 1.0,
+    "D_star": 1.0,
+    "T_min": 0.005,
+    "Gamma0": 1.0,
+    "GammaS0": 0.005,
+    "D_S_cut": 1.0,
+    "T_PG": 0.005,
+    "T_S_fixed": 0.05,
+    "T_S_over_D_range": [
+      0.005,
+      1.0
+    ],
+    "GS_over_G0_range": [
+      0.005,
+      0.1
+    ],
+    "T_PG_over_D_list": [
+      0.005,
+      0.029240177382128668,
+      0.17099759466766973
+    ],
+    "D_S_over_D_list": [
+      0.005,
+      0.029240177382128668,
+      0.17099759466766973,
+      1.0
+    ],
+    "file_suffix": "_rho5e-03_fixedRatio"
+  },
+  "rho1e-02_fixedRatio": {
+    "preset_name": "rho1e-02_fixedRatio",
+    "description": "Option B (Fixed GS0/G0=1.0e-02) | D*=1, rho=T_min/D*=1.0e-02, Gamma0=1, GammaS0=1.0e-02, T_S_fixed=0.1",
+    "rho": 0.01,
+    "fix_g0_over_gs": true,
+    "D": 1.0,
+    "D_star": 1.0,
+    "T_min": 0.01,
+    "Gamma0": 1.0,
+    "GammaS0": 0.01,
+    "D_S_cut": 1.0,
+    "T_PG": 0.01,
+    "T_S_fixed": 0.1,
+    "T_S_over_D_range": [
+      0.01,
+      1.0
+    ],
+    "GS_over_G0_range": [
+      0.01,
+      0.1
+    ],
+    "T_PG_over_D_list": [
+      0.01,
+      0.046415888336127795,
+      0.2154434690031884
+    ],
+    "D_S_over_D_list": [
+      0.01,
+      0.046415888336127795,
+      0.2154434690031884,
+      1.0
+    ],
+    "file_suffix": "_rho1e-02_fixedRatio"
+  },
+  "rho1e-04_fixedRatio": {
+    "preset_name": "rho1e-04_fixedRatio",
+    "description": "Option B (Fixed GS0/G0=1.0e-03) | D*=1, rho=T_min/D*=1.0e-04, Gamma0=0.1, GammaS0=1.0e-04, T_S_fixed=0.001",
+    "rho": 0.0001,
+    "fix_g0_over_gs": true,
+    "D": 1.0,
+    "D_star": 1.0,
+    "T_min": 0.0001,
+    "Gamma0": 0.1,
+    "GammaS0": 0.0001,
+    "D_S_cut": 1.0,
+    "T_PG": 0.0001,
+    "T_S_fixed": 0.001,
+    "T_S_over_D_range": [
+      0.0001,
+      1.0
+    ],
+    "GS_over_G0_range": [
+      0.001,
+      0.1
+    ],
+    "T_PG_over_D_list": [
+      0.0001,
+      0.0021544346900318847,
+      0.046415888336127795
+    ],
+    "D_S_over_D_list": [
+      0.0001,
+      0.0021544346900318847,
+      0.046415888336127795,
+      1.0
+    ],
+    "file_suffix": "_rho1e-04_fixedRatio"
+  },
+  "rho5e-04_fixedRatio": {
+    "preset_name": "rho5e-04_fixedRatio",
+    "description": "Option B (Fixed GS0/G0=1.0e-03) | D*=1, rho=T_min/D*=5.0e-04, Gamma0=0.5, GammaS0=5.0e-04, T_S_fixed=0.005",
+    "rho": 0.0005,
+    "fix_g0_over_gs": true,
+    "D": 1.0,
+    "D_star": 1.0,
+    "T_min": 0.0005,
+    "Gamma0": 0.5,
+    "GammaS0": 0.0005,
+    "D_S_cut": 1.0,
+    "T_PG": 0.0005,
+    "T_S_fixed": 0.005,
+    "T_S_over_D_range": [
+      0.0005,
+      1.0
+    ],
+    "GS_over_G0_range": [
+      0.001,
+      0.1
+    ],
+    "T_PG_over_D_list": [
+      0.0005,
+      0.006299605249474368,
+      0.07937005259840998
+    ],
+    "D_S_over_D_list": [
+      0.0005,
+      0.006299605249474368,
+      0.07937005259840998,
+      1.0
+    ],
+    "file_suffix": "_rho5e-04_fixedRatio"
+  },
+  "rho1e-04": {
+    "preset_name": "rho1e-04",
+    "description": "D=D*=1, rho=T_min/D*=1.0e-04, Gamma0=D*=1, GammaS0=T_min=1.0e-04, T_S_fixed=0.001",
+    "rho": 0.0001,
+    "D": 1.0,
+    "D_star": 1.0,
+    "T_min": 0.0001,
+    "Gamma0": 1.0,
+    "GammaS0": 0.0001,
+    "D_S_cut": 1.0,
+    "T_PG": 0.0001,
+    "T_S_fixed": 0.001,
+    "T_S_over_D_range": [
+      0.0001,
+      1.0
+    ],
+    "GS_over_G0_range": [
+      0.0001,
+      0.1
+    ],
+    "T_PG_over_D_list": [
+      0.0001,
+      0.0021544346900318847,
+      0.046415888336127795
+    ],
+    "D_S_over_D_list": [
+      0.0001,
+      0.0021544346900318847,
+      0.046415888336127795,
+      1.0
+    ],
+    "file_suffix": "_rho1e-04"
+  },
+  "rho1e-03": {
+    "preset_name": "rho1e-03",
+    "description": "D=D*=1, rho=T_min/D*=1.0e-03, Gamma0=D*=1, GammaS0=T_min=1.0e-03, T_S_fixed=0.01",
+    "rho": 0.001,
+    "D": 1.0,
+    "D_star": 1.0,
+    "T_min": 0.001,
+    "Gamma0": 1.0,
+    "GammaS0": 0.001,
+    "D_S_cut": 1.0,
+    "T_PG": 0.001,
+    "T_S_fixed": 0.01,
+    "T_S_over_D_range": [
+      0.001,
+      1.0
+    ],
+    "GS_over_G0_range": [
+      0.001,
+      0.1
+    ],
+    "T_PG_over_D_list": [
+      0.001,
+      0.010000000000000002,
+      0.10000000000000002
+    ],
+    "D_S_over_D_list": [
+      0.001,
+      0.010000000000000002,
+      0.10000000000000002,
+      1.0
+    ],
+    "TS_over_D_panel_B": [
+      0.001,
+      0.01,
+      0.1,
+      1.0
+    ],
+    "file_suffix": "_rho1e-03"
   }
 }

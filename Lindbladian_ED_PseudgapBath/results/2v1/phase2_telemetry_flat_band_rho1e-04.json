@@ -1,0 +1,35 @@
+{
+  "stage": "flat_band | rho1e-04",
+  "run_on_slurm": false,
+  "hardware": {
+    "max_cpu": 18,
+    "n_workers": 16,
+    "reserved_cpus": 2,
+    "total_ram_gb": 64.0,
+    "peak_rss_mb": 633.95,
+    "initial_load_1m": 16.8,
+    "final_load_1m": 16.98
+  },
+  "timings": {
+    "total_tasks": 177,
+    "total_wall_sec": 5.218,
+    "cumulative_worker_cpu_sec": 57.045,
+    "parallel_efficiency": 0.6833,
+    "mean_task_sec": 0.3223,
+    "max_task_sec": 0.3601
+  },
+  "contention_events": [
+    {
+      "completed_tasks": 73,
+      "elapsed_sec": 3.06,
+      "parallel_efficiency": 0.4801,
+      "load_1m": 16.98
+    },
+    {
+      "completed_tasks": 177,
+      "elapsed_sec": 5.07,
+      "parallel_efficiency": 0.7032,
+      "load_1m": 16.98
+    }
+  ]
+}

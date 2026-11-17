@@ -1,0 +1,22 @@
+{
+  "stage": "lorentzian | rho1e-03",
+  "run_on_slurm": false,
+  "hardware": {
+    "max_cpu": 18,
+    "n_workers": 16,
+    "reserved_cpus": 2,
+    "total_ram_gb": 64.0,
+    "peak_rss_mb": 711.78,
+    "initial_load_1m": 19.96,
+    "final_load_1m": 19.8
+  },
+  "timings": {
+    "total_tasks": 237,
+    "total_wall_sec": 5.251,
+    "cumulative_worker_cpu_sec": 77.844,
+    "parallel_efficiency": 0.9266,
+    "mean_task_sec": 0.3285,
+    "max_task_sec": 0.367
+  },
+  "contention_events": []
+}
