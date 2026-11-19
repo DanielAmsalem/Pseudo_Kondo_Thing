@@ -1,49 +1,50 @@
 """
-run_phase2_benchmarks.py  (benchmark2v2)
-----------------------------------------
-Main changes from last version: selective panel printing (TO_PRINT), dedicated
-/results/phase2v2 output folder, single-T_PG Main Plot (A) with 11 T_S points,
-side-by-side main_AB PDF, vector PDF-only export, and KC figure aesthetics.
+run_phase2v2_benchmarks.py  (benchmark2v2)
+------------------------------------------
+Main changes from last version: parameterized all energy scales via D* (D_STAR = 1.0)
+independently of D and D_S, added presets (`low_T_default`, `low_T_shortPGband`,
+`low_T_shortSband`, `low_Tshortbands`) with ACTIVE_PRESET = "all", dynamically scanned
+all physical decades inside [T_min, D*] with T_S/D labels in both Plots A and B, and
+fixed the exterior bound-state pole branching weight.
 
 Executes Phase 2 (Step 1b: Two Baths Connected & Stress-Testing the Weak-Coupling Window)
 with N_PG = 10,000 modes in the power-law bath and N_S = 4,000 modes in the probe bath
-for the pseudogap exponents r in {0.3, 0.5} (plus -1 < r < 1 sweep in Main Plot B).
+for the pseudogap exponents r in {0.3, 0.4, 0.5} (plus -1 < r < 1 sweep in Main Plot B).
 
 PRIMARY EXECUTION & PHYSICS FLAGS:
   1. RUN_ON_SLURM (bool):
        - True  : Configures SLURM/cluster single-threaded BLAS environment variables,
-                 enables faulthandler, and writes outputs to `/home/amsalda/PseudoGap/results/phase2v2`.
+                 enables faulthandler, and writes outputs to
+                 `/home/amsalda/PseudoGap/results/phase2v2_{preset_name}`.
        - False : Local PC / macOS mode; skips SLURM environment setup and resolves paths
-                 one folder up from `/Computers` to `../results/phase2v2` inside
+                 one folder up from `/Computers` to `../results/phase2v2_{preset_name}` inside
                  `/Lindbladian_ED_pseudgapBath/`.
-  2. RHO (float):
+  2. ACTIVE_PRESET (str | list[str]):
+       - Selects which preset(s) to run from PRESET_CONFIGS (default: "all"):
+           * "low_T_default"     : D = D*,      D_S = D*
+           * "low_T_shortPGband" : D = D* / 10, D_S = D*
+           * "low_T_shortSband"  : D = D*,      D_S = D* / 10
+           * "low_Tshortbands"   : D = D* / 10, D_S = D* / 10
+  3. RHO (float):
        - Dynamic range ratio rho = T_min / D* (e.g. 1e-3 for 3 decades, 1e-4 for 4 decades),
-         with the UV bandwidth cap D* = 1.0 ever-fixed and T_min = RHO * D*.
-  3. TO_PRINT (list[str]):
+         with the global UV cap D* = 1.0 ever-fixed and T_min = RHO * D*.
+  4. TO_PRINT (list[str]):
        - Panel keys from {"a".."h", "A", "B"} to export individually as vector PDFs inside
-         `results/phase2v2/phase2plots/` (falls back to `["A", "B"]` if empty or invalid).
+         `results/phase2v2_{preset_name}/phase2plots/` (falls back to `["A", "B"]` if invalid).
 
-CANONICAL ENERGY SCALE ASSIGNMENT (Maximizes the Two-Sided Weak-Coupling Window):
-  - D = D* = 1.0                 (Ever-fixed UV bandwidth cap)
+CANONICAL ENERGY SCALE ASSIGNMENT (All Expressed via D*, Independent of D and D_S):
+  - D* = 1.0                     (Ever-fixed global UV scale cap)
   - T_min = RHO * D*             (IR energy scale floor)
-  - Gamma0 = D* = 1.0            (Pushes self-energy crossover T* = (Gamma0/D*)^(1/(1-r)) D* -> D*)
-  - GammaS0 = T_min = RHO * D*   (Weak-probe coupling at the IR floor; ratio GammaS0/Gamma0 = RHO)
-  - T_PG = T_min = RHO * D*      (Baseline power-law bath temperature)
-  - D_S = D* = 1.0               (Baseline wide-band probe cutoff)
-  - T_S_fixed = min(0.1 D*, 10 T_min)
+  - Gamma0 = 1.0 * D*            (Power-law bath coupling prefactor)
+  - GammaS0 = RHO * D*           (Weak-probe coupling at the IR floor; GammaS0/Gamma0 = RHO)
+  - T_PG = RHO * D*              (Baseline power-law bath temperature)
+  - T_S_fixed = min(0.1 D*, 10 * RHO * D*)
 
 MULTIPROCESSING & TELEMETRY:
   - Uses `concurrent.futures.ProcessPoolExecutor` with `max_cpu - PC_RESERVED_CPUS` workers
-    on local PC/Mac (e.g., 20 - 2 = 18 workers) across all flattened tight-binding tasks.
+    on local PC/Mac (e.g., 18 - 2 = 16 workers) across all flattened tight-binding tasks.
   - Logs live progress, throughput, parallel scaling efficiency, and CPU contention warnings,
     and saves a structured JSON telemetry report alongside the PDFs and summary tables.
-
-SYNCHRONIZED WITH `bath.py`, `spectral_qrt.py`, AND `run_phase1_benchmarks.py`:
-  1. Uses `gamma_rule="capped_adaptive"` for the power-law bath `bath_pg`, eliminating
-     1/eps_q^2 UV Lorentzian tail leakage into the low-energy pseudogap for r > 0.
-  2. Retains the out-of-band bound-state pole contribution (|w| > D_PG) when the probe
-     is at the wide-band cap (D_S = D*), matching `analytic_two_bath_tilde_S_eps_d` in
-     `spectral_qrt.py` so wide-band curves reach S(0)/ln 2 -> +1 at high T_S.
 """
 
 from __future__ import annotations
@@ -52,6 +53,7 @@ import os
 import sys
 import gc
 import json
+import math
 import time
 import logging
 import warnings
@@ -59,7 +61,7 @@ import argparse
 import resource
 import subprocess
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Tuple, Union
 
 # Suppress benign RuntimeWarnings (e.g. overflow in high-x Fermi exponentials) in main & workers
 warnings.filterwarnings("ignore", category=RuntimeWarning)
@@ -68,18 +70,18 @@ os.environ["PYTHONWARNINGS"] = "ignore::RuntimeWarning"
 # ============================================================================
 # 1. PRIMARY USER CONTROL FLAGS (Edit these or override via CLI flags)
 # ============================================================================
-RUN_ON_SLURM: bool = False       # True: SLURM cluster env & /PseudoGap/results; False: PC ../results
-RHO: float = 1.0e-3              # Dynamic range ratio rho = T_min / D* (1e-3 = 3 orders of magnitude)
-TO_PRINT: List[str] = ["A", "B"] # Individual panels to export into `results/phase2v2/phase2plots/`
+RUN_ON_SLURM: bool = False                    # True: SLURM cluster; False: Local PC/Mac (../results)
+ACTIVE_PRESET: Union[str, List[str]] = "all"  # Preset name, list of names, or "all"
+RHO: float = 1.0e-3                           # Dynamic range ratio rho = T_min / D* (1e-3 = 3 decades)
+TO_PRINT: List[str] = ["A", "B"]              # Individual panels to export into `phase2plots/`
 
 # Target pseudogap exponents:
-# - Core & stress-test panels (a)-(h) and Main Plot (A) focus on r in {0.3, 0.5}
-# - Main Plot (B) sweeps -1 < r < 1 at T_S/D in {1e-3, 1e-2, 1e-1, 1}
+# - Core & stress-test panels (a)-(h) and Main Plot (A) focus on r in {0.3, 0.4, 0.5}
+# - Main Plot (B) sweeps -1 < r < 1 across all physical decade temperatures in [T_min, D*]
 R_LIST_ALL: List[float] = [0.3, 0.4, 0.5]
 R_LIST_PANEL_B: List[float] = [-0.9, -0.7, -0.5, -0.3, 0.0, 0.3, 0.5, 0.7, 0.9]
-TS_OVER_D_PANEL_B: List[float] = [1.0e-3, 1.0e-2, 1.0e-1, 1.0]
 
-# Ever-fixed UV bandwidth cap and derived IR floor
+# Ever-fixed global UV scale cap and derived IR floor
 D_STAR: float = 1.0
 T_MIN: float = RHO * D_STAR
 
@@ -89,12 +91,11 @@ PC_RESERVED_CPUS: int = 2
 VALID_PANEL_KEYS = {"a", "b", "c", "d", "e", "f", "g", "h", "A", "B"}
 
 # ============================================================================
-# 2. ENVIRONMENT & DIRECTORY ROUTING (Driven by RUN_ON_SLURM)
+# 2. ENVIRONMENT & BASE DIRECTORY ROUTING (Driven by RUN_ON_SLURM)
 # ============================================================================
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 if RUN_ON_SLURM:
-    # Cluster preamble: prevent BLAS thread oversubscription and enable crash tracebacks
     os.environ["OMP_NUM_THREADS"] = "1"
     os.environ["OPENBLAS_NUM_THREADS"] = "1"
     os.environ["MKL_NUM_THREADS"] = "1"
@@ -113,16 +114,23 @@ if RUN_ON_SLURM:
         else os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
     )
 else:
-    # Local PC / macOS mode: step one folder up from /Computers to /Lindbladian_ED_pseudgapBath/
     PROJECT_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, ".."))
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(line_buffering=True)
 
-RESULTS_DIR = os.path.join(PROJECT_ROOT, "results", "phase2v2")
-PHASE2_PLOTS_DIR = os.path.join(RESULTS_DIR, "phase2plots")
-os.makedirs(RESULTS_DIR, exist_ok=True)
-os.makedirs(PHASE2_PLOTS_DIR, exist_ok=True)
+BASE_RESULTS_DIR = os.path.join(PROJECT_ROOT, "results")
+os.makedirs(BASE_RESULTS_DIR, exist_ok=True)
 PRESETS_JSON_PATH = os.path.join(SCRIPT_DIR, "phase2_presets.json")
+
+
+def get_preset_dirs(preset_name: str) -> Tuple[str, str]:
+    """Return `(results_dir, phase2_plots_dir)` for `phase2v2_{preset_name}`."""
+    res_dir = os.path.join(BASE_RESULTS_DIR, f"phase2v2_{preset_name}")
+    plots_dir = os.path.join(res_dir, "phase2plots")
+    os.makedirs(res_dir, exist_ok=True)
+    os.makedirs(plots_dir, exist_ok=True)
+    return res_dir, plots_dir
+
 
 # ============================================================================
 # 3. GLOBAL MATPLOTLIB STYLE (KC FIGURE GUIDELINES — VECTOR PDF ONLY)
@@ -138,13 +146,7 @@ from matplotlib.lines import Line2D
 
 
 def apply_kc_figure_style() -> None:
-    """
-    Configure Matplotlib rcParams following KC's Figure Guidelines:
-      - Vector PDF output with editable TrueType text (`pdf.fonttype = 42`)
-      - Standardized sans-serif typography (`Myriad Pro` with clean fallback)
-      - Thin, unobtrusive 0.5 pt axes frames and tick marks
-      - Goldilocks 1.5 pt default curve thickness
-    """
+    """Configure Matplotlib rcParams following KC's Figure Guidelines."""
     plt.rcParams.update({
         "font.family": "sans-serif",
         "font.sans-serif": ["Myriad Pro", "DejaVu Sans", "Helvetica", "Arial"],
@@ -177,6 +179,7 @@ from lyapunov_solver import LyapunovSolver
 from spectral_qrt import (
     bare_bath_hybridization_dl,
     alpha_func_eq14,
+    continuum_self_energy_finite_D,
     analytic_tilde_S0_eq14,
     analytic_tilde_S0_eq12,
     analytic_two_bath_tilde_S_eps_d,
@@ -189,20 +192,19 @@ TARGET_N_PG: int = 10000
 TARGET_N_S: int = 4000
 LN2: float = float(np.log(2.0))
 
-# Precomputed 64-point Gauss-Legendre nodes/weights on [0, 1] for out-of-band pole quadrature
 _GL64_S, _GL64_W = np.polynomial.legendre.leggauss(64)
 _GL64_S = 0.5 * (_GL64_S + 1.0)
 _GL64_W = 0.5 * _GL64_W
+
+_GL128_S, _GL128_W = np.polynomial.legendre.leggauss(128)
+_GL128_S = 0.5 * (_GL128_S + 1.0)
+_GL128_W = 0.5 * _GL128_W
 
 ProbeProfileType = Literal["flat_band", "lorentzian"]
 
 
 def sanitize_to_print(raw_to_print: Any) -> List[str]:
-    """
-    Validate `TO_PRINT` list of panel identifiers (from {'a'..'h', 'A', 'B'}).
-    If `raw_to_print` is None, not a list/tuple/set of strings, empty, or contains
-    corrupt/unknown tokens, logs a warning and returns the default `['A', 'B']`.
-    """
+    """Validate `TO_PRINT` panel identifiers; fallback to `['A', 'B']` if invalid."""
     default_panels = ["A", "B"]
     if not isinstance(raw_to_print, (list, tuple, set)) or len(raw_to_print) == 0:
         print(f"[Warning] Invalid or empty TO_PRINT={raw_to_print!r}; falling back to {default_panels}.", flush=True)
@@ -227,11 +229,7 @@ def sanitize_to_print(raw_to_print: Any) -> List[str]:
 # 5. SYSTEM HARDWARE & PROGRESS TELEMETRY (For PC / Mac & Cluster Monitoring)
 # ============================================================================
 def get_worker_count(run_on_slurm: bool = RUN_ON_SLURM, reserved_cpus: int = PC_RESERVED_CPUS) -> Tuple[int, int]:
-    """
-    Determine (max_cpu, n_workers).
-    On PC/Mac (`run_on_slurm=False`), allocates `max(1, max_cpu - reserved_cpus)` workers
-    (e.g., 20 - 2 = 18 workers) so macOS and agentic AI processes keep 2 cores free.
-    """
+    """Determine `(max_cpu, n_workers)`, reserving `reserved_cpus` cores on local PC/Mac."""
     if run_on_slurm:
         slurm_cpus = os.environ.get("SLURM_CPUS_PER_TASK")
         max_cpu = int(slurm_cpus) if slurm_cpus and slurm_cpus.isdigit() else (os.cpu_count() or 1)
@@ -251,27 +249,20 @@ def get_system_ram_gb() -> Optional[float]:
             with open("/proc/meminfo", "r", encoding="utf-8") as f:
                 for line in f:
                     if line.startswith("MemTotal:"):
-                        kb = int(line.split()[1])
-                        return kb / (1024.0 ** 2)
+                        return int(line.split()[1]) / (1024.0 ** 2)
     except Exception:
         pass
     return None
 
 
 def get_peak_rss_mb() -> float:
-    """Return peak resident set size (RSS) in MB (handles macOS bytes vs Linux KiB)."""
+    """Return peak resident set size (RSS) in MB."""
     rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    if sys.platform == "darwin":
-        return rss / (1024.0 ** 2)
-    return rss / 1024.0
+    return rss / (1024.0 ** 2) if sys.platform == "darwin" else rss / 1024.0
 
 
 class RunTelemetry:
-    """
-    Lightweight progress, parallel scaling efficiency, and CPU contention monitor.
-    Designed for local Mac/PC runs (and future agentic AI parameter scans) to detect
-    whether background CPU load or memory pressure slows down worker throughput.
-    """
+    """Lightweight progress, parallel scaling efficiency, and CPU contention monitor."""
 
     def __init__(
         self,
@@ -329,9 +320,7 @@ class RunTelemetry:
             pct = 100.0 * self.completed_tasks / max(1, self.total_tasks)
             rate = self.completed_tasks / elapsed
             eta = (self.total_tasks - self.completed_tasks) / max(1e-9, rate)
-            # Parallel efficiency compares cumulative pure worker compute time to wall-clock CPU budget
-            eff = self.cumulative_worker_sec / (self.n_workers * elapsed)
-            eff_clamped = min(1.0, eff)
+            eff_clamped = min(1.0, self.cumulative_worker_sec / (self.n_workers * elapsed))
             load_1m = self._read_load_1m()
 
             print(
@@ -341,7 +330,6 @@ class RunTelemetry:
                 flush=True,
             )
 
-            # Flag CPU contention once workers have warmed up past the first wave
             if self.completed_tasks >= self.n_workers and (
                 eff_clamped < 0.72 or load_1m > 1.15 * self.max_cpu
             ):
@@ -387,7 +375,7 @@ class RunTelemetry:
 
 
 # ============================================================================
-# 6. RATIO-DRIVEN ENERGY SCALE CONFIGURATION (D* = 1.0, Gamma0 = D*, GammaS0 = T_min)
+# 6. PRESETS & D*-REPRESENTED ENERGY SCALE CONFIGURATION (D* = 1.0 FIXED)
 # ============================================================================
 def assert_within_caps(
     val: float | np.ndarray,
@@ -404,79 +392,137 @@ def assert_within_caps(
         )
 
 
-def make_config_from_rho(
+def _all_decades_in_window(t_min: float, d_star: float) -> List[float]:
+    """
+    Dynamically collect every integer power of 10 (`10^k`) that lies strictly within
+    `[t_min, d_star]`, avoiding hardcoded T_S/D lists that could violate bounds when D changes.
+    """
+    k_min = int(math.ceil(math.log10(t_min * (1.0 - 1e-12))))
+    k_max = int(math.floor(math.log10(d_star * (1.0 + 1e-12))))
+    vals = [10.0 ** k for k in range(k_min, k_max + 1)]
+    if not vals:
+        vals = [t_min, d_star]
+    return vals
+
+
+def make_preset_config(
+    preset_name: str,
+    D: float,
+    D_S_cut: float,
     rho: float = RHO,
-    preset_name: Optional[str] = None,
+    description: str = "",
 ) -> Dict[str, Any]:
     """
-    Construct the canonical parameter set inside [T_min, D*] with:
-      - D = D* = 1.0            (ever-fixed UV cutoff)
-      - T_min = rho * D*        (IR scale floor)
-      - Gamma0 = D* = 1.0       (maximizes the self-energy crossover scale T* -> D*)
-      - GammaS0 = T_min         (weak-probe coupling at the IR floor; GammaS0/Gamma0 = rho)
-      - T_PG = T_min            (baseline power-law bath temperature)
-      - D_S_cut = D* = 1.0      (baseline wide-band probe cutoff)
-      - T_S_fixed = min(0.1 * D*, 10 * T_min)
-    All knob scan lists (T_PG/D, D_S/D) are log-spaced inside [rho, 1.0].
+    Construct a preset configuration where ALL physical energy constants and scan
+    grids are represented strictly via `D_STAR` (`D* = 1.0`) and `T_min = rho * D*`,
+    completely independently of `D` and `D_S_cut`:
+      - T_min = rho * D*
+      - Gamma0 = 1.0 * D*
+      - GammaS0 = rho * D*       (= T_min)
+      - T_PG = rho * D*          (= T_min)
+      - T_S_fixed = min(0.1 * D*, 10 * rho * D*)
+      - T_S scan range: [T_min, D*] (so T_S/D spans [1e-3, 1] when D=D*, and [1e-2, 10] when D=D*/10)
+      - TS_panel_B: all physical decade temperatures 10^k inside [T_min, D*]
+      - T_PG_list & D_S_list: log-spaced physical scales inside [T_min, D*]
     """
     rho = float(rho)
     if not (0.0 < rho < 1.0):
         raise ValueError(f"RHO = T_min / D* must satisfy 0 < RHO < 1; got {rho}.")
 
-    d_cap = D_STAR
+    d_cap = float(D_STAR)
     t_min = rho * d_cap
-    D = d_cap
-    Gamma0 = d_cap
-    GammaS0 = t_min
-    D_S_cut = d_cap
-    T_PG = t_min
-    T_S_fixed = min(0.1 * d_cap, 10.0 * t_min)
+    D_val = float(D)
+    D_S_val = float(D_S_cut)
+
+    # All physical constants defined via D*, completely independent of D and D_S
+    Gamma0 = 1.0 * d_cap
+    GammaS0 = rho * d_cap
+    T_PG = rho * d_cap
+    T_S_fixed = min(0.1 * d_cap, 10.0 * rho * d_cap)
 
     for v, n in [
-        (D, "D"), (Gamma0, "Gamma0"), (GammaS0, "GammaS0"),
-        (D_S_cut, "D_S_cut"), (T_PG, "T_PG"), (T_S_fixed, "T_S_fixed"),
+        (D_val, "D"), (Gamma0, "Gamma0"), (GammaS0, "GammaS0"),
+        (D_S_val, "D_S_cut"), (T_PG, "T_PG"), (T_S_fixed, "T_S_fixed"),
     ]:
         assert_within_caps(v, n, t_min=t_min, d_star=d_cap)
 
-    gs_ratio_min = GammaS0 / Gamma0  # Equals rho
+    gs_ratio_min = GammaS0 / Gamma0
     gs_ratio_max = max(1.0e-1, 10.0 * gs_ratio_min)
 
-    # Evenly log-spaced knob values inside [rho, 1.0]
-    t_pg_over_d_list = [rho, rho ** (2.0 / 3.0), rho ** (1.0 / 3.0)]
-    d_s_over_d_list = [rho, rho ** (2.0 / 3.0), rho ** (1.0 / 3.0), 1.0]
+    t_pg_list = [
+        t_min,
+        (rho ** (2.0 / 3.0)) * d_cap,
+        (rho ** (1.0 / 3.0)) * d_cap,
+    ]
+    d_s_list = sorted(set([
+        t_min,
+        (rho ** (2.0 / 3.0)) * d_cap,
+        (rho ** (1.0 / 3.0)) * d_cap,
+        D_S_val,
+        d_cap,
+    ]))
+    ts_panel_b = _all_decades_in_window(t_min, d_cap)
 
-    # Filter Panel (B) T_S/D list to remain within [rho, 1.0]
-    ts_panel_b = [val for val in TS_OVER_D_PANEL_B if val >= rho * (1.0 - 1e-12)]
-    if not ts_panel_b:
-        ts_panel_b = [rho, 1.0]
-
-    auto_name = preset_name or f"rho{rho:.0e}"
     return {
-        "preset_name": auto_name,
-        "description": (
-            f"D=D*={d_cap:g}, rho=T_min/D*={rho:.1e}, "
-            f"Gamma0=D*={Gamma0:g}, GammaS0=T_min={GammaS0:.1e}, T_S_fixed={T_S_fixed:g}"
+        "preset_name": preset_name,
+        "description": description or (
+            f"Preset '{preset_name}': D={D_val/d_cap:g}D*, D_S={D_S_val/d_cap:g}D*, "
+            f"rho=T_min/D*={rho:.1e}, Gamma0=D*, GammaS0=T_PG=T_min={t_min:.1e}"
         ),
         "rho": rho,
-        "D": float(D),
-        "D_star": float(d_cap),
-        "T_min": float(t_min),
-        "Gamma0": float(Gamma0),
-        "GammaS0": float(GammaS0),
-        "D_S_cut": float(D_S_cut),
-        "T_PG": float(T_PG),
-        "T_S_fixed": float(T_S_fixed),
-        "T_S_over_D_range": (rho, 1.0),
+        "D": D_val,
+        "D_star": d_cap,
+        "T_min": t_min,
+        "Gamma0": Gamma0,
+        "GammaS0": GammaS0,
+        "D_S_cut": D_S_val,
+        "T_PG": T_PG,
+        "T_S_fixed": T_S_fixed,
+        "T_S_range": (t_min, d_cap),
         "GS_over_G0_range": (float(gs_ratio_min), float(gs_ratio_max)),
-        "T_PG_over_D_list": [float(x) for x in t_pg_over_d_list],
-        "D_S_over_D_list": [float(x) for x in d_s_over_d_list],
-        "TS_over_D_panel_B": [float(x) for x in ts_panel_b],
-        "file_suffix": f"_{auto_name}",
+        "T_PG_list": [float(x) for x in t_pg_list],
+        "D_S_list": [float(x) for x in d_s_list],
+        "TS_panel_B": [float(x) for x in ts_panel_b],
+        "file_suffix": f"_{preset_name}_rho{rho:.0e}",
     }
 
 
-def sync_presets_json(active_cfg: Dict[str, Any]) -> None:
-    """Record the active ratio-driven configuration in `phase2_presets.json`."""
+def build_preset_catalog(rho: float = RHO) -> Dict[str, Dict[str, Any]]:
+    """Build all four canonical presets parameterized via D*."""
+    return {
+        "low_T_default": make_preset_config(
+            preset_name="low_T_default",
+            D=1.0 * D_STAR,
+            D_S_cut=1.0 * D_STAR,
+            rho=rho,
+            description="Default wide-band setup: D = D*, D_S = D* (all constants via D*)",
+        ),
+        "low_T_shortPGband": make_preset_config(
+            preset_name="low_T_shortPGband",
+            D=0.1 * D_STAR,
+            D_S_cut=1.0 * D_STAR,
+            rho=rho,
+            description="Short power-law bath band: D = D*/10, D_S = D* (all constants via D*)",
+        ),
+        "low_T_shortSband": make_preset_config(
+            preset_name="low_T_shortSband",
+            D=1.0 * D_STAR,
+            D_S_cut=0.1 * D_STAR,
+            rho=rho,
+            description="Short probe bath band: D = D*, D_S = D*/10 (all constants via D*)",
+        ),
+        "low_Tshortbands": make_preset_config(
+            preset_name="low_Tshortbands",
+            D=0.1 * D_STAR,
+            D_S_cut=0.1 * D_STAR,
+            rho=rho,
+            description="Short PG and probe bands: D = D_S = D*/10 (all constants via D*)",
+        ),
+    }
+
+
+def sync_presets_json(catalog: Dict[str, Dict[str, Any]]) -> None:
+    """Record all presets in `phase2_presets.json`."""
     store: Dict[str, Any] = {}
     if os.path.exists(PRESETS_JSON_PATH):
         try:
@@ -484,20 +530,16 @@ def sync_presets_json(active_cfg: Dict[str, Any]) -> None:
                 store = json.load(f)
         except Exception:
             store = {}
-    store[active_cfg["preset_name"]] = active_cfg
+    store.update(catalog)
     with open(PRESETS_JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(store, f, indent=2)
 
 
 # ============================================================================
-# 7. TWO-BATH SOLVER & MULTIPROCESSING WORKER KERNELS
+# 7. TWO-BATH SOLVER & CONTINUUM INTEGRALS FOR INDEPENDENT (D, D_S)
 # ============================================================================
 def _worker_init() -> None:
-    """
-    Initializer executed once per spawned worker process.
-    Suppresses benign RuntimeWarnings, enforces single-threaded BLAS (preventing 18x20
-    thread thrashing on macOS Accelerate), and sets headless Matplotlib rendering.
-    """
+    """Enforce single-threaded BLAS, suppressed warnings, and Agg backend per worker."""
     warnings.filterwarnings("ignore", category=RuntimeWarning)
     os.environ["OMP_NUM_THREADS"] = "1"
     os.environ["OPENBLAS_NUM_THREADS"] = "1"
@@ -507,7 +549,7 @@ def _worker_init() -> None:
     os.environ["MPLBACKEND"] = "Agg"
 
 
-def make_lorentzian_shape(D_S_width: float):
+def make_lorentzian_shape(D_S_width: float) -> Callable[[np.ndarray], np.ndarray]:
     """Return Lorentzian frequency profile g_S(w) = 1 / (1 + (w / D_S_width)^2)."""
     return lambda w: 1.0 / (1.0 + (np.asarray(w, dtype=float) / D_S_width) ** 2)
 
@@ -516,7 +558,10 @@ def get_color_map(r_values: Sequence[float]) -> Dict[float, Any]:
     """Assign high-contrast publication colors sorted from smallest to largest r."""
     unique_r = sorted(set(float(r) for r in r_values))
     if len(unique_r) == 2:
-        palette = ["#1f77b4", "#d55e00"]  # Royal blue (r=0.3) & vermilion (r=0.5)
+        palette = ["#1f77b4", "#d55e00"]
+        return {r: palette[i] for i, r in enumerate(unique_r)}
+    if len(unique_r) == 3:
+        palette = ["#1f77b4", "#009e73", "#d55e00"]
         return {r: palette[i] for i, r in enumerate(unique_r)}
     cmap = plt.cm.turbo(np.linspace(0.12, 0.88, len(unique_r)))
     return {r: cmap[i] for i, r in enumerate(unique_r)}
@@ -530,28 +575,28 @@ def build_two_bath_solver(
     Gamma0: float,
     GammaS0: float,
     T_PG: float,
-    D_PG: float = D_STAR,
+    D_PG: float,
+    d_star: float = D_STAR,
     t_min: float = T_MIN,
     omega_ir_PG: float = 0.0,
     n_pg: int = TARGET_N_PG,
     n_s: int = TARGET_N_S,
 ) -> LyapunovSolver:
     """
-    Construct the two-bath LyapunovSolver with bounds t_min <= x <= D_PG.
-    Uses `gamma_rule="capped_adaptive"` on `bath_pg` so high-energy logarithmic bins
-    near |eps_q| ~ D_PG do not leak 1/w^2 Lorentzian tails into the low-energy pseudogap.
+    Construct the two-bath LyapunovSolver with independent bandwidths `D_PG = D` and
+    `D_S_cutoff = D_S` inside [t_min, d_star].
     """
     for val, name in [
         (T_S, "T_S"), (T_PG, "T_PG"), (Gamma0, "Gamma0"),
         (GammaS0, "GammaS0"), (D_S_cutoff, "D_S_cutoff"), (D_PG, "D_PG"),
     ]:
-        assert_within_caps(val, name, t_min=t_min, d_star=D_PG)
+        assert_within_caps(val, name, t_min=t_min, d_star=d_star)
 
     if probe_profile == "flat_band":
         D_S_band = D_S_cutoff
         probe_fn = None
     elif probe_profile == "lorentzian":
-        D_S_band = D_PG
+        D_S_band = d_star
         probe_fn = make_lorentzian_shape(D_S_cutoff)
     else:
         raise ValueError(f"Unknown probe_profile: {probe_profile}")
@@ -597,33 +642,38 @@ def two_bath_tight_binding_sweep(
     T_S: float,
     probe_profile: ProbeProfileType,
     D_S_cutoff: float,
-    D_PG: float = D_STAR,
+    D_PG: float,
+    d_star: float = D_STAR,
     include_out_of_band_poles: bool = True,
 ) -> Dict[str, np.ndarray]:
     """
-    Evaluate the two-bath tight-binding sweep across `eps_d_grid`:
-      1. Inside the bath band (|w| <= D_PG): `solver.sweep_eps_d_protocol` (`schur_lddl`).
-      2. Outside the power-law bath band (|w| > D_PG): adds the out-of-band bound-state pole
-         contribution when the probe is not hard-truncated below D_PG, recovering S(0)->ln 2 at high T_S.
+    Evaluate the two-bath tight-binding sweep across `eps_d_grid` for independent
+    bandwidths `D_PG = D` and `D_S_cutoff = D_S`:
+      1. Inside [-D_max, D_max] (D_max = max(D_PG, D_S_band)): `solver.sweep_eps_d_protocol`.
+      2. Outside [-D_max, D_max]: adds the exterior bound-state pole contribution when
+         the probe extends to `d_star`, using `g_p = Gamma0 * (w_pos ** r)` in the
+         branching ratio so high-T_S curves match `analytic_two_bath_tilde_S_eps_d`.
     """
     sweep = solver.sweep_eps_d_protocol(eps_d_grid, target_bath="S", method="schur_lddl")
 
+    bath_pg = solver.baths[0]
+    bath_s = solver.baths[1]
+    D_max = max(bath_pg.D, bath_s.D)
+
     has_subband_hard_cutoff = (
-        probe_profile == "flat_band" and D_S_cutoff < 0.9999 * D_PG
+        probe_profile == "flat_band" and D_S_cutoff < 0.9999 * d_star
     )
     x_full_max = 45.0
     if (
         include_out_of_band_poles
         and not has_subband_hard_cutoff
-        and (1.0001 * D_PG / T_S < x_full_max)
+        and (1.0001 * D_max / T_S < x_full_max)
     ):
-        bath_pg = solver.baths[0]
-        bath_s = solver.baths[1]
         Gamma0 = bath_pg.Gamma0
         r = bath_pg.r
         GammaS0 = bath_s.Gamma0
 
-        x_start = 1.0001 * D_PG / T_S
+        x_start = 1.0001 * D_max / T_S
         span = x_full_max - x_start
         x2 = x_start + span * _GL64_S
         dx2 = span * _GL64_W
@@ -657,6 +707,31 @@ def two_bath_tight_binding_sweep(
     return sweep
 
 
+def _sigma_pg_continuum_general(w_pos: np.ndarray, Gamma0: float, r: float, D_PG: float) -> np.ndarray:
+    """
+    Exact finite-bandwidth Kramers-Kronig self-energy Sigma_{PG;D}(w) for w > 0,
+    supporting both in-band (w < D_PG) and exterior (w > D_PG) frequencies.
+    """
+    w_arr = np.asarray(w_pos, dtype=float)
+    out = np.zeros_like(w_arr)
+    mask_in = w_arr < D_PG
+    mask_out = ~mask_in
+
+    if np.any(mask_in):
+        out[mask_in] = continuum_self_energy_finite_D(w_arr[mask_in], Gamma0, r, D=D_PG)
+
+    if np.any(mask_out):
+        w_ext = w_arr[mask_out]
+        s = _GL64_S[None, :]
+        ws = _GL64_W[None, :]
+        y_sq = s ** (2.0 / (r + 1.0))
+        denom = (w_ext[:, None] ** 2) - (D_PG ** 2) * y_sq
+        pref = (2.0 * Gamma0 * (D_PG ** (r + 1.0)) * w_ext) / (np.pi * (r + 1.0))
+        out[mask_out] = pref * np.sum(ws / denom, axis=1)
+
+    return out
+
+
 def eval_analytic_two_bath(
     eps_d: float | np.ndarray,
     T_S: float,
@@ -665,32 +740,136 @@ def eval_analytic_two_bath(
     r: float,
     probe_profile: ProbeProfileType,
     D_S_cutoff: float,
-    D_PG: float = D_STAR,
+    D_PG: float,
+    d_star: float = D_STAR,
     eps_max: Optional[float] = None,
     include_out_of_band_poles: bool = True,
 ) -> float | np.ndarray:
-    """Evaluate the two-bath continuum integral (Note Eq. 11) for the chosen probe profile."""
-    if probe_profile == "flat_band":
-        return analytic_two_bath_tilde_S_eps_d(
-            eps_d, T_S, Gamma0, GammaS0, r,
-            D_PG=D_PG, D_S=D_S_cutoff, probe_shape_fn=None, eps_max=eps_max,
-            include_out_of_band_poles=include_out_of_band_poles,
+    """
+    Evaluate the exact two-bath continuum integral for independent `D_PG = D` and
+    `D_S_cutoff = D_S`.
+    """
+    if np.isclose(D_PG, d_star, rtol=1e-12, atol=1e-14):
+        if probe_profile == "flat_band":
+            return analytic_two_bath_tilde_S_eps_d(
+                eps_d, T_S, Gamma0, GammaS0, r,
+                D_PG=D_PG, D_S=D_S_cutoff, probe_shape_fn=None, eps_max=eps_max,
+                include_out_of_band_poles=include_out_of_band_poles,
+            )
+        if probe_profile == "lorentzian":
+            return analytic_two_bath_tilde_S_eps_d(
+                eps_d, T_S, Gamma0, GammaS0, r,
+                D_PG=D_PG, D_S=d_star, probe_shape_fn=make_lorentzian_shape(D_S_cutoff),
+                eps_max=eps_max, include_out_of_band_poles=include_out_of_band_poles,
+            )
+        raise ValueError(f"Unknown probe_profile: {probe_profile}")
+
+    # Piecewise continuum integration when D_PG < d_star
+    scalar_input = np.ndim(eps_d) == 0
+    ed_arr = np.atleast_1d(np.asarray(eps_d, dtype=float))
+    if eps_max is None:
+        sec_pr2 = 1.0 / np.cos(0.5 * np.pi * r)
+        eff_w = Gamma0 * (T_S ** r) * sec_pr2 + GammaS0
+        eps_max = max(25.0 * d_star, 100.0 * eff_w)
+    eps_min = -abs(float(eps_max))
+
+    D_S_band = D_S_cutoff if probe_profile == "flat_band" else d_star
+    probe_fn = None if probe_profile == "flat_band" else make_lorentzian_shape(D_S_cutoff)
+    D_low = min(D_PG, D_S_band)
+    D_high = max(D_PG, D_S_band)
+    x_full_max = 45.0
+
+    def _eval_band_segment(w_pos: np.ndarray, weights_w: np.ndarray) -> np.ndarray:
+        emx = np.exp(-w_pos / T_S)
+        df_factor = (w_pos / (T_S ** 2)) * emx / ((1.0 + emx) ** 2)
+        sig_pos = _sigma_pg_continuum_general(w_pos, Gamma0, r, D_PG)
+        g_p = np.where(w_pos <= D_PG, Gamma0 * (w_pos ** r), 0.0)
+        g_s = (
+            np.full_like(w_pos, GammaS0)
+            if probe_fn is None
+            else GammaS0 * np.asarray(probe_fn(w_pos), dtype=float)
         )
-    if probe_profile == "lorentzian":
-        return analytic_two_bath_tilde_S_eps_d(
-            eps_d, T_S, Gamma0, GammaS0, r,
-            D_PG=D_PG, D_S=D_PG, probe_shape_fn=make_lorentzian_shape(D_S_cutoff), eps_max=eps_max,
-            include_out_of_band_poles=include_out_of_band_poles,
+        g_tot = g_p + g_s
+        branch = g_s / g_tot
+
+        ed_col = ed_arr[:, None]
+        ph_neg = (
+            np.arctan((ed_col + w_pos[None, :] - sig_pos[None, :]) / g_tot[None, :])
+            - np.arctan((eps_min + w_pos[None, :] - sig_pos[None, :]) / g_tot[None, :])
         )
-    raise ValueError(f"Unknown probe_profile: {probe_profile}")
+        ph_pos = (
+            np.arctan((ed_col - w_pos[None, :] + sig_pos[None, :]) / g_tot[None, :])
+            - np.arctan((eps_min - w_pos[None, :] + sig_pos[None, :]) / g_tot[None, :])
+        )
+        integrand = ((ph_neg - ph_pos) / np.pi) * branch[None, :] * df_factor[None, :]
+        return integrand @ weights_w
+
+    total = np.zeros_like(ed_arr)
+
+    # Segment 1: [0, min(D_low, x_full_max * T_S)] with power-law desingularization
+    w1_max = min(D_low, x_full_max * T_S)
+    if w1_max > 0.0:
+        p = max(0.5, 2.0 - r)
+        w1 = w1_max * (_GL128_S ** (1.0 / p))
+        dw1 = (w1_max / p) * (_GL128_S ** (1.0 / p - 1.0)) * _GL128_W
+        total += _eval_band_segment(w1, dw1)
+
+    # Segment 2: [D_low, min(D_high, x_full_max * T_S)] with log-clustering near D_low^+
+    w2_max = min(D_high, x_full_max * T_S)
+    if w2_max > D_low * (1.0 + 1e-12):
+        if not (probe_profile == "flat_band" and D_S_cutoff < D_PG):
+            eps_edge = 1e-6 * D_low
+            u_min = np.log(eps_edge)
+            u_max = np.log((w2_max - D_low) + eps_edge)
+            u_nodes = u_min + (u_max - u_min) * _GL128_S
+            du_weights = (u_max - u_min) * _GL128_W
+            delta_w = np.exp(u_nodes) - eps_edge
+            w2 = D_low + delta_w
+            dw2 = (delta_w + eps_edge) * du_weights
+            total += _eval_band_segment(w2, dw2)
+
+    # Segment 3: Exterior bound-state poles w > D_high (when probe reaches d_star)
+    has_subband_hard_cutoff = (
+        probe_profile == "flat_band" and D_S_cutoff < 0.9999 * d_star
+    )
+    if (
+        include_out_of_band_poles
+        and not has_subband_hard_cutoff
+        and (1.0001 * D_high / T_S < x_full_max)
+    ):
+        x_start = 1.0001 * D_high / T_S
+        span3 = x_full_max - x_start
+        x3 = x_start + span3 * _GL64_S
+        dx3 = span3 * _GL64_W
+        w3 = x3 * T_S
+        emx3 = np.exp(-x3)
+        tw3 = x3 * emx3 / ((1.0 + emx3) ** 2)
+
+        sig3 = _sigma_pg_continuum_general(w3, Gamma0, r, D_PG)
+        g_p3 = Gamma0 * (w3 ** r)
+        g_s3 = (
+            np.full_like(w3, GammaS0)
+            if probe_fn is None
+            else GammaS0 * np.asarray(probe_fn(w3), dtype=float)
+        )
+        branch3 = g_s3 / (g_p3 + g_s3)
+
+        ed_col = ed_arr[:, None]
+        ph_neg3 = 0.5 * (
+            np.sign(ed_col + w3[None, :] - sig3[None, :])
+            - np.sign(eps_min + w3[None, :] - sig3[None, :])
+        )
+        ph_pos3 = 0.5 * (
+            np.sign(ed_col - w3[None, :] + sig3[None, :])
+            - np.sign(eps_min - w3[None, :] + sig3[None, :])
+        )
+        total += ((ph_neg3 - ph_pos3) * branch3[None, :]) @ (tw3 * dx3)
+
+    return float(total[0]) if scalar_input else total
 
 
 def _execute_benchmark_task(task: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Top-level picklable worker function executed in parallel across `ProcessPoolExecutor`.
-    Runs a single independent tight-binding sweep or resonance evaluation and returns
-    the result along with its pure wall-clock compute duration for telemetry.
-    """
+    """Top-level picklable worker function executed across `ProcessPoolExecutor`."""
     t0 = time.perf_counter()
     kind = task["kind"]
     r = float(task["r"])
@@ -700,6 +879,7 @@ def _execute_benchmark_task(task: Dict[str, Any]) -> Dict[str, Any]:
     T_PG = float(task["T_PG"])
     D_S_cutoff = float(task["D_S_cutoff"])
     D_PG = float(task["D_PG"])
+    d_star = float(task["d_star"])
     t_min = float(task["t_min"])
     probe_profile: ProbeProfileType = task["probe_profile"]
     eps_d_grid = np.asarray(task["eps_d_grid"], dtype=float)
@@ -713,6 +893,7 @@ def _execute_benchmark_task(task: Dict[str, Any]) -> Dict[str, Any]:
         GammaS0=GammaS0,
         T_PG=T_PG,
         D_PG=D_PG,
+        d_star=d_star,
         t_min=t_min,
     )
     sweep = two_bath_tight_binding_sweep(
@@ -722,6 +903,7 @@ def _execute_benchmark_task(task: Dict[str, Any]) -> Dict[str, Any]:
         probe_profile=probe_profile,
         D_S_cutoff=D_S_cutoff,
         D_PG=D_PG,
+        d_star=d_star,
         include_out_of_band_poles=True,
     )
 
@@ -750,11 +932,7 @@ def run_phase2_parallel_suite(
     n_workers: int,
     r_list: List[float] = R_LIST_ALL,
 ) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
-    """
-    Execute all Step 1b core verification, stress tests, and Main Plot (B) sweeps
-    by flattening every independent tight-binding evaluation into `executor` and
-    tracking progress/contention via `RunTelemetry`.
-    """
+    """Execute all Step 1b core verification, stress tests, and Main Plot (B) sweeps."""
     D = float(cfg["D"])
     D_cap = float(cfg["D_star"])
     t_min = float(cfg["T_min"])
@@ -764,22 +942,23 @@ def run_phase2_parallel_suite(
     T_S_fixed = float(cfg["T_S_fixed"])
     T_PG_base = float(cfg["T_PG"])
     D_S_cut = float(cfg["D_S_cut"])
-    ts_min_over_D, ts_max_over_D = cfg["T_S_over_D_range"]
+    ts_min, ts_max = cfg["T_S_range"]
     gs_ratio_min, gs_ratio_max = cfg["GS_over_G0_range"]
-    ts_b_over_d = cfg["TS_over_D_panel_B"]
+    ts_panel_b = cfg["TS_panel_B"]
 
     prof_desc = (
-        f"Flat Probe Gamma_S(w) = GammaS0 * Theta(D_S - |w|) with D_S = {D_S_cut/D:g}D"
+        f"Flat Probe Gamma_S(w) = GammaS0 * Theta(D_S - |w|) with D_S = {D_S_cut/D_cap:g}D*"
         if probe_profile == "flat_band"
-        else f"Lorentzian Probe Gamma_S(w) = GammaS0 / (1 + (w/D_S)^2) with D_S = {D_S_cut/D:g}D"
+        else f"Lorentzian Probe Gamma_S(w) = GammaS0 / (1 + (w/D_S)^2) with D_S = {D_S_cut/D_cap:g}D*"
     )
 
     header = (
         "=" * 124 + "\n"
         f"STEP 1b ({probe_profile.upper()} | Preset: {cfg['preset_name']}): {prof_desc}\n"
         f"  Bounds: [T_min={t_min:.1e}, D*={D_cap:g}] (rho={cfg['rho']:.1e}) | "
-        f"Gamma0=D*={Gamma0:g}, GammaS0=T_min={GammaS0:.1e} (GS0/G0={ratio_S_ref:.1e}), "
-        f"D_S={D_S_cut/D:g}D, T_PG={T_PG_base:.1e}, T_S_fixed={T_S_fixed:g} ({T_S_fixed/D:g}D)\n"
+        f"D={D/D_cap:g}D*, D_S={D_S_cut/D_cap:g}D*, Gamma0={Gamma0/D_cap:g}D*, "
+        f"GammaS0={GammaS0/D_cap:g}D* (GS0/G0={ratio_S_ref:.1e}), T_PG={T_PG_base/D_cap:g}D*, "
+        f"T_S_fixed={T_S_fixed/D_cap:g}D*\n"
         + "=" * 124
     )
     print(header, flush=True)
@@ -789,7 +968,7 @@ def run_phase2_parallel_suite(
     r_chk = float(r_list[0])
     sol_chk = build_two_bath_solver(
         r=r_chk, T_S=T_S_fixed, probe_profile=probe_profile, D_S_cutoff=D_S_cut,
-        Gamma0=Gamma0, GammaS0=GammaS0, T_PG=T_PG_base, D_PG=D_cap, t_min=t_min,
+        Gamma0=Gamma0, GammaS0=GammaS0, T_PG=T_PG_base, D_PG=D, d_star=D_cap, t_min=t_min,
         n_pg=300, n_s=150,
     )
     ed_list = np.linspace(-0.3 * D_cap, 0.3 * D_cap, 21)
@@ -837,15 +1016,16 @@ def run_phase2_parallel_suite(
             "GammaS0": GammaS0,
             "T_PG": T_PG_base,
             "D_S_cutoff": D_S_cut,
-            "D_PG": D_cap,
+            "D_PG": D,
+            "d_star": D_cap,
             "t_min": t_min,
             "probe_profile": probe_profile,
             "eps_d_grid": eps_d_grid,
         })
 
-    # (B) Core T_S scan across [rho * D*, D*] (11 log-spaced points for Panel e & Main Plot A)
-    T_grid = np.logspace(np.log10(ts_min_over_D * D), np.log10(ts_max_over_D * D), 11)
-    T_dense = np.logspace(np.log10(ts_min_over_D * D), np.log10(ts_max_over_D * D), 65)
+    # (B) Core T_S scan across [T_min, D*] (11 log-spaced points for Panel e & Main Plot A)
+    T_grid = np.logspace(np.log10(ts_min), np.log10(ts_max), 11)
+    T_dense = np.logspace(np.log10(ts_min), np.log10(ts_max), 65)
     assert_within_caps(T_grid, "T_grid", t_min=t_min, d_star=D_cap)
 
     for r in r_list:
@@ -863,7 +1043,8 @@ def run_phase2_parallel_suite(
                 "GammaS0": GammaS0,
                 "T_PG": T_PG_base,
                 "D_S_cutoff": D_S_cut,
-                "D_PG": D_cap,
+                "D_PG": D,
+                "d_star": D_cap,
                 "t_min": t_min,
                 "probe_profile": probe_profile,
                 "eps_d_grid": np.array([-eps_max_T, 0.0]),
@@ -887,18 +1068,16 @@ def run_phase2_parallel_suite(
                 "GammaS0": gs,
                 "T_PG": T_PG_base,
                 "D_S_cutoff": D_S_cut,
-                "D_PG": D_cap,
+                "D_PG": D,
+                "d_star": D_cap,
                 "t_min": t_min,
                 "probe_profile": probe_profile,
                 "eps_d_grid": np.array([-eps_max, 0.0]),
             })
 
     # (D) Stress Test 2 (Panel g): Varying power-law bath temperature T_PG
-    tpg_over_d = cfg["T_PG_over_D_list"]
-    T_PG_low = float(tpg_over_d[0]) * D
-    T_PG_mid = float(tpg_over_d[1]) * D
-    T_PG_high = float(tpg_over_d[2]) * D
-    T_S_scan_15 = np.logspace(np.log10(ts_min_over_D * D), np.log10(ts_max_over_D * D), 15)
+    T_PG_low, T_PG_mid, T_PG_high = [float(x) for x in cfg["T_PG_list"]]
+    T_S_scan_15 = np.logspace(np.log10(ts_min), np.log10(ts_max), 15)
     T_S_subgrids = [T_S_scan_15[0::3], T_S_scan_15[1::3], T_S_scan_15[2::3]]
     T_PG_levels = [T_PG_low, T_PG_mid, T_PG_high]
 
@@ -918,14 +1097,15 @@ def run_phase2_parallel_suite(
                     "GammaS0": GammaS0,
                     "T_PG": t_pg_val,
                     "D_S_cutoff": D_S_cut,
-                    "D_PG": D_cap,
+                    "D_PG": D,
+                    "d_star": D_cap,
                     "t_min": t_min,
                     "probe_profile": probe_profile,
                     "eps_d_grid": np.array([-eps_max_T, 0.0]),
                 })
 
-    # (E) Stress Test 3 (Panel h): Varying probe cutoffs D_S / D (reuses D_S == D_S_cut from Core T_S scan)
-    D_S_list = [float(ds_mult) * D for ds_mult in cfg["D_S_over_D_list"]]
+    # (E) Stress Test 3 (Panel h): Varying probe cutoffs D_S (reuses D_S == D_S_cut from Core T_S scan)
+    D_S_list = [float(ds_val) for ds_val in cfg["D_S_list"]]
     for _ds in D_S_list:
         assert_within_caps(_ds, "D_S_list element", t_min=t_min, d_star=D_cap)
 
@@ -947,30 +1127,32 @@ def run_phase2_parallel_suite(
                     "GammaS0": GammaS0,
                     "T_PG": T_PG_base,
                     "D_S_cutoff": ds_val,
-                    "D_PG": D_cap,
+                    "D_PG": D,
+                    "d_star": D_cap,
                     "t_min": t_min,
                     "probe_profile": probe_profile,
                     "eps_d_grid": np.array([-eps_max_T, 0.0]),
                 })
 
-    # (F) Main Plot (B): S(0)/ln 2 vs -1 < r < 1 at T_S/D in {1e-3, 1e-2, 1e-1, 1}
+    # (F) Main Plot (B): S(0)/ln 2 vs -1 < r < 1 across all physical decade T_S values
     r_tb_B = sorted(set(float(rv) for rv in R_LIST_PANEL_B))
-    for idx_ts_b, ts_mult in enumerate(ts_b_over_d):
-        ts_val = float(ts_mult) * D
+    for idx_ts_b, ts_val in enumerate(ts_panel_b):
+        ts_fl = float(ts_val)
         for idx_r_b, r_val in enumerate(r_tb_B):
             sec_pr2 = 1.0 / np.cos(0.5 * np.pi * r_val)
-            eff_w = Gamma0 * (ts_val ** r_val) * sec_pr2 + GammaS0
+            eff_w = Gamma0 * (ts_fl ** r_val) * sec_pr2 + GammaS0
             eps_max_T = max(25.0 * D_cap, 100.0 * eff_w)
             tasks.append({
                 "kind": "panel_B_tb",
                 "meta": {"idx_ts_b": idx_ts_b, "idx_r_b": idx_r_b, "r": r_val},
                 "r": r_val,
-                "T_S": ts_val,
+                "T_S": ts_fl,
                 "Gamma0": Gamma0,
                 "GammaS0": GammaS0,
                 "T_PG": T_PG_base,
                 "D_S_cutoff": D_S_cut,
-                "D_PG": D_cap,
+                "D_PG": D,
+                "d_star": D_cap,
                 "t_min": t_min,
                 "probe_profile": probe_profile,
                 "eps_d_grid": np.array([-eps_max_T, 0.0]),
@@ -997,7 +1179,7 @@ def run_phase2_parallel_suite(
     raw_stress_ds: Dict[float, Dict[float, np.ndarray]] = {
         r: {ds_val: np.zeros(len(T_grid)) for ds_val in D_S_list} for r in r_list
     }
-    raw_panel_B: np.ndarray = np.zeros((len(ts_b_over_d), len(r_tb_B)))
+    raw_panel_B: np.ndarray = np.zeros((len(ts_panel_b), len(r_tb_B)))
 
     futures = [executor.submit(_execute_benchmark_task, t) for t in tasks]
     for fut in as_completed(futures):
@@ -1042,7 +1224,7 @@ def run_phase2_parallel_suite(
         "T_S_fixed": T_S_fixed,
         "T_PG_base": T_PG_base,
         "D_S_cut": D_S_cut,
-        "T_S_over_D_range": (ts_min_over_D, ts_max_over_D),
+        "T_S_range": (ts_min, ts_max),
         "GS_over_G0_range": cfg["GS_over_G0_range"],
         "sweeps": {},
         "T_scans": {},
@@ -1068,7 +1250,7 @@ def run_phase2_parallel_suite(
         tS_num_0 = float(sweep["S_eps_d"][-1])
         tS_exact_curve = eval_analytic_two_bath(
             eps_d_grid, T_S_fixed, Gamma0, GammaS0, r,
-            probe_profile=probe_profile, D_S_cutoff=D_S_cut, D_PG=D_cap,
+            probe_profile=probe_profile, D_S_cutoff=D_S_cut, D_PG=D, d_star=D_cap,
             eps_max=eps_max, include_out_of_band_poles=True,
         )
         tS_exact_0 = float(tS_exact_curve[-1])
@@ -1115,7 +1297,7 @@ def run_phase2_parallel_suite(
             eps_max_T = max(25.0 * D_cap, 50.0 * eff_w)
             val_ex = float(eval_analytic_two_bath(
                 0.0, ts, Gamma0, GammaS0, r,
-                probe_profile=probe_profile, D_S_cutoff=D_S_cut, D_PG=D_cap,
+                probe_profile=probe_profile, D_S_cutoff=D_S_cut, D_PG=D, d_star=D_cap,
                 eps_max=eps_max_T, include_out_of_band_poles=True,
             ))
             tS_exact_T[idx_t] = val_ex
@@ -1125,7 +1307,7 @@ def run_phase2_parallel_suite(
         tS_exact_dense = np.array([
             float(eval_analytic_two_bath(
                 0.0, float(t), Gamma0, GammaS0, r,
-                probe_profile=probe_profile, D_S_cutoff=D_S_cut, D_PG=D_cap,
+                probe_profile=probe_profile, D_S_cutoff=D_S_cut, D_PG=D, d_star=D_cap,
                 eps_max=max(25.0 * D_cap, 50.0 * (Gamma0 * (float(t) ** r) * sec_pr2 + GammaS0)),
                 include_out_of_band_poles=True,
             ))
@@ -1134,7 +1316,7 @@ def run_phase2_parallel_suite(
         tS_trunc_dense = np.array([
             float(eval_analytic_two_bath(
                 0.0, float(t), Gamma0, GammaS0, r,
-                probe_profile=probe_profile, D_S_cutoff=D_S_cut, D_PG=D_cap,
+                probe_profile=probe_profile, D_S_cutoff=D_S_cut, D_PG=D, d_star=D_cap,
                 eps_max=max(25.0 * D_cap, 50.0 * (Gamma0 * (float(t) ** r) * sec_pr2 + GammaS0)),
                 include_out_of_band_poles=False,
             ))
@@ -1161,41 +1343,40 @@ def run_phase2_parallel_suite(
             "S_recon_eq14_dense": (tS_eq14_dense / LN2) / pref_dense,
         }
 
-    # Assemble Main Plot (B) data across -1 < r < 1 (with smooth uniform cutoff)
+    # Assemble Main Plot (B) data across -1 < r < 1
     r_dense_B = np.linspace(-0.90, 0.90, 121)
     alpha_tb_B = np.array([alpha_func_eq14(rv) for rv in r_tb_B])
     alpha_dense_B = np.array([alpha_func_eq14(float(rv)) for rv in r_dense_B])
     panel_B_curves: Dict[float, Dict[str, np.ndarray]] = {}
 
-    for idx_ts_b, ts_mult in enumerate(ts_b_over_d):
-        ts_val = float(ts_mult) * D
-        prefs_tb = ratio_S_ref * alpha_tb_B * (ts_val ** (-np.array(r_tb_B)))
+    for idx_ts_b, ts_val in enumerate(ts_panel_b):
+        ts_fl = float(ts_val)
+        prefs_tb = ratio_S_ref * alpha_tb_B * (ts_fl ** (-np.array(r_tb_B)))
         s_recon_tb_B = (raw_panel_B[idx_ts_b] / LN2) / prefs_tb
 
         s_recon_ex_B = np.zeros(len(r_dense_B))
         for idx_rd, rv in enumerate(r_dense_B):
             r_fl = float(rv)
             sec_pr2 = 1.0 / np.cos(0.5 * np.pi * r_fl)
-            eff_w = Gamma0 * (ts_val ** r_fl) * sec_pr2 + GammaS0
+            eff_w = Gamma0 * (ts_fl ** r_fl) * sec_pr2 + GammaS0
             eps_max_T = max(25.0 * D_cap, 100.0 * eff_w)
             val_ex = float(eval_analytic_two_bath(
-                0.0, ts_val, Gamma0, GammaS0, r_fl,
-                probe_profile=probe_profile, D_S_cutoff=D_S_cut, D_PG=D_cap,
+                0.0, ts_fl, Gamma0, GammaS0, r_fl,
+                probe_profile=probe_profile, D_S_cutoff=D_S_cut, D_PG=D, d_star=D_cap,
                 eps_max=eps_max_T, include_out_of_band_poles=True,
             ))
-
-            pref_d = ratio_S_ref * alpha_dense_B[idx_rd] * (ts_val ** (-r_fl))
+            pref_d = ratio_S_ref * alpha_dense_B[idx_rd] * (ts_fl ** (-r_fl))
             s_recon_ex_B[idx_rd] = (val_ex / LN2) / pref_d
 
-        panel_B_curves[float(ts_mult)] = {
-            "T_S": ts_val,
+        panel_B_curves[ts_fl] = {
+            "T_S": ts_fl,
             "r_tb": np.array(r_tb_B, dtype=float),
             "S_recon_tb": s_recon_tb_B,
             "r_dense": r_dense_B,
             "S_recon_exact": s_recon_ex_B,
         }
     results_1b["panel_B"] = {
-        "ts_over_d_list": [float(x) for x in ts_b_over_d],
+        "ts_list": [float(x) for x in ts_panel_b],
         "curves": panel_B_curves,
     }
     results_1b["log_lines"] = log_lines
@@ -1232,7 +1413,7 @@ def run_phase2_parallel_suite(
             eps_max = max(25.0 * D_cap, 50.0 * eff_w)
             val_ex = float(eval_analytic_two_bath(
                 0.0, T_S_fixed, Gamma0, gs, r,
-                probe_profile=probe_profile, D_S_cutoff=D_S_cut, D_PG=D_cap,
+                probe_profile=probe_profile, D_S_cutoff=D_S_cut, D_PG=D, d_star=D_cap,
                 eps_max=eps_max, include_out_of_band_poles=True,
             ))
             recon_ex_dense.append((val_ex / LN2) / pref)
@@ -1296,7 +1477,7 @@ def run_phase2_parallel_suite(
                 eps_max_T = max(25.0 * D_cap, 50.0 * eff_w)
                 vals.append(float(eval_analytic_two_bath(
                     0.0, ts, Gamma0, GammaS0, r,
-                    probe_profile=probe_profile, D_S_cutoff=ds_val, D_PG=D_cap,
+                    probe_profile=probe_profile, D_S_cutoff=ds_val, D_PG=D, d_star=D_cap,
                     eps_max=eps_max_T, include_out_of_band_poles=True,
                 )))
             ana_by_ds[ds_val] = (np.array(vals) / LN2) / prefs_dense
@@ -1324,11 +1505,7 @@ def run_phase2_parallel_suite(
 # 9. MODULAR KC-STYLED PANEL RENDERERS (PDF ONLY)
 # ============================================================================
 def _kc_font_sizes(standalone: bool) -> Dict[str, float]:
-    """
-    Return KC-proportioned font sizes:
-      - Axis labels ~25% larger than tick numbers
-      - Panel letters (A, B, a..h) substantially larger than axis labels
-    """
+    """Return KC-proportioned font sizes (tick < axis label +25% < bold panel tag)."""
     if standalone:
         return {"tick": 14.0, "label": 17.5, "panel_tag": 24.0, "title": 16.0, "legend": 11.5}
     return {"tick": 10.5, "label": 13.2, "panel_tag": 17.0, "title": 11.2, "legend": 8.0}
@@ -1348,7 +1525,7 @@ def draw_panel_a(ax: plt.Axes, res_core: dict, colors: dict, standalone: bool = 
     D, D_cap = res_core["D"], res_core["D_star"]
     T_S_fixed, T_PG_base = res_core["T_S_fixed"], res_core["T_PG_base"]
     ratio_S_ref, D_S_cut = res_core["ratio_S_ref"], res_core["D_S_cut"]
-    probe_short = f"Flat $D_S={D_S_cut/D:g}D$" if res_core["probe_profile"] == "flat_band" else f"Lorentzian $D_S={D_S_cut/D:g}D$"
+    probe_short = f"Flat $D_S={D_S_cut/D_cap:g}D^*$" if res_core["probe_profile"] == "flat_band" else f"Lorentzian $D_S={D_S_cut/D_cap:g}D^*$"
 
     min_y = 0.0
     for r in all_r:
@@ -1417,8 +1594,8 @@ def draw_panel_b(ax: plt.Axes, res_core: dict, colors: dict, standalone: bool = 
 def draw_panel_c(ax: plt.Axes, res_core: dict, colors: dict, standalone: bool = False) -> None:
     fs = _kc_font_sizes(standalone)
     all_r = sorted(res_core["sweeps"].keys())
-    D, ratio_S_ref, D_S_cut, T_PG_base = res_core["D"], res_core["ratio_S_ref"], res_core["D_S_cut"], res_core["T_PG_base"]
-    x_min_T, x_max_T = res_core["T_S_over_D_range"]
+    D, D_cap, ratio_S_ref, D_S_cut, T_PG_base = res_core["D"], res_core["D_star"], res_core["ratio_S_ref"], res_core["D_S_cut"], res_core["T_PG_base"]
+    ts_min, ts_max = res_core["T_S_range"]
 
     for r in all_r:
         if np.isclose(r, 0.0):
@@ -1428,14 +1605,14 @@ def draw_panel_c(ax: plt.Axes, res_core: dict, colors: dict, standalone: bool = 
         ax.loglog(tdata["T_dense"] / D, np.abs(tdata["tS_eq12_dense"]) / (ratio_S_ref * LN2), "--", color=colors[r], lw=1.2)
         ax.loglog(tdata["T_dense"] / D, np.abs(tdata["tS_exact_dense"]) / (ratio_S_ref * LN2), "-", color=colors[r], lw=1.6)
         ax.loglog(tdata["T_grid"] / D, np.abs(tdata["tS_num"]) / (ratio_S_ref * LN2), "o", color=colors[r], ms=5.5)
-    ax.set_xlim(x_min_T, x_max_T)
+    ax.set_xlim(ts_min / D, ts_max / D)
     ax.set_ylim(1e-2, 1e2)
     ax.set_xlabel(r"Probe Temperature $T_S / D$ (log scale)", fontsize=fs["label"])
     ax.set_ylabel(r"Scaled Magnitude $|\tilde{S}(0)| / (\frac{\Gamma_{S,0}}{\Gamma_0}\ln 2)$", fontsize=fs["label"])
-    ax.set_title(f"(c) Step 1b: Scaling $|\\tilde{{S}}(0)| \\propto T_S^{{-r}}$ ($D_S={D_S_cut/D:g}D, T_{{\\mathrm{{PG}}}}/D={T_PG_base/D:g}$)", fontsize=fs["title"])
+    ax.set_title(f"(c) Step 1b: Scaling $|\\tilde{{S}}(0)| \\propto T_S^{{-r}}$ ($D_S={D_S_cut/D_cap:g}D^*, T_{{\\mathrm{{PG}}}}/D={T_PG_base/D:g}$)", fontsize=fs["title"])
     handles = [
         Line2D([0], [0], color="k", marker="o", ls="None", ms=5, label=r"Tight-Binding Lyapunov ($N=14\mathrm{k}$)"),
-        Line2D([0], [0], color="k", ls="-", lw=1.6, label=f"Exact Finite-Cutoff Integral (Eq. 11, $D_S={D_S_cut/D:g}D$)"),
+        Line2D([0], [0], color="k", ls="-", lw=1.6, label=f"Exact Finite-Cutoff Integral (Eq. 11, $D_S={D_S_cut/D_cap:g}D^*$)"),
         Line2D([0], [0], color="k", ls="--", lw=1.2, label=r"Unbounded Note Limit (Eq. 12, $D_S\to\infty$)"),
         Line2D([0], [0], color="k", ls=":", lw=1.2, label=r"Low-$T_S$ Power Law $|r|\alpha(r)T_S^{-r}$ (Eq. 14)"),
     ]
@@ -1488,7 +1665,7 @@ def draw_panel_e(ax: plt.Axes, res_core: dict, colors: dict, standalone: bool = 
     fs = _kc_font_sizes(standalone)
     all_r = sorted(res_core["sweeps"].keys())
     D, D_cap, T_S_fixed, T_PG_base, D_S_cut = res_core["D"], res_core["D_star"], res_core["T_S_fixed"], res_core["T_PG_base"], res_core["D_S_cut"]
-    x_min_T, x_max_T = res_core["T_S_over_D_range"]
+    ts_min, ts_max = res_core["T_S_range"]
     s_ylim = (-0.15, 1.08) if min(all_r) >= 0.0 else (-1.05, 1.08)
 
     for r in all_r:
@@ -1500,20 +1677,20 @@ def draw_panel_e(ax: plt.Axes, res_core: dict, colors: dict, standalone: bool = 
         ax.axhline(r, color=colors[r], ls=":", lw=1.0, alpha=0.55)
     ax.axhline(1.0, color="dimgray", ls="-.", lw=1.0, alpha=0.6)
     ax.axvline(T_S_fixed / D, color="dimgray", ls=":", lw=1.0, alpha=0.7)
-    ax.set_xlim(x_min_T, x_max_T)
+    ax.set_xlim(ts_min / D, ts_max / D)
     ax.set_ylim(*s_ylim)
     ax.set_xlabel(r"Probe Temperature $T_S / D$", fontsize=fs["label"])
     ax.set_ylabel(r"Reconstructed Entropy $S_{\mathrm{recon}}(0) / \ln 2$", fontsize=fs["label"])
-    ax.set_title(f"(e) Step 1b: $S_{{\\mathrm{{recon}}}}(0)/\\ln 2$ vs $T_S/D$ ($D_S={D_S_cut/D:g}D, T_{{\\mathrm{{PG}}}}/D={T_PG_base/D:g}$)", fontsize=fs["title"])
+    ax.set_title(f"(e) Step 1b: $S_{{\\mathrm{{recon}}}}(0)/\\ln 2$ vs $T_S/D$ ($D={D/D_cap:g}D^*, D_S={D_S_cut/D_cap:g}D^*$)", fontsize=fs["title"])
     handles = [
-        Line2D([0], [0], color="k", marker="o", ls="-", lw=1.7, ms=5, label=f"Tight-Binding & Exact Integral (Eq. 11, $D_S={D_S_cut/D:g}D$)"),
+        Line2D([0], [0], color="k", marker="o", ls="-", lw=1.7, ms=5, label=f"Tight-Binding & Exact Integral (Eq. 11, $D_S={D_S_cut/D_cap:g}D^*$)"),
         Line2D([0], [0], color="k", ls="--", lw=1.3, label=r"Unbounded Note Limit (Eq. 12: $D_S\to\infty, \Gamma_S\to 0$)"),
-        Line2D([0], [0], color="k", ls="-.", lw=1.1, alpha=0.55, label=f"Band-Truncated Only ($|\\omega|\\leq D^*={D_cap/D:g}D$)"),
+        Line2D([0], [0], color="k", ls="-.", lw=1.1, alpha=0.55, label=f"Band-Truncated Only ($|\\omega|\\leq D^*$)"),
         Line2D([0], [0], color="k", ls=":", lw=1.0, label=r"Asymptotes: Low-$T_S$ ($r$, Eq. 14) & High-$T_S$ ($+1$)"),
     ]
     if standalone:
         handles += [Line2D([0], [0], color=colors[r], lw=2.2, label=f"$r = {r:+.1f}$") for r in all_r]
-    ax.legend(handles=handles, frameon=True, facecolor="white", fontsize=fs["legend"] * 0.85, loc="upper left")
+    ax.legend(handles=handles, frameon=True, facecolor="white", fontsize=fs["legend"] * 0.85, loc="lower left")
     _apply_kc_axes_polish(ax, fs)
 
 
@@ -1548,11 +1725,11 @@ def draw_panel_f(ax: plt.Axes, res_core: dict, res_stress: dict, colors: dict, s
 
 
 def draw_panel_g(ax: plt.Axes, res_core: dict, res_stress: dict, colors: dict, standalone: bool = False) -> None:
-    """Diagnostic Panel (g): Varies bath temperature T_PG/D across {rho, rho^(2/3), rho^(1/3)}."""
+    """Diagnostic Panel (g): Varies bath temperature T_PG/D across {rho D*/D, rho^(2/3) D*/D, rho^(1/3) D*/D}."""
     fs = _kc_font_sizes(standalone)
     all_r = sorted(res_core["sweeps"].keys())
-    D, D_S_cut = res_core["D"], res_core["D_S_cut"]
-    x_min_T, x_max_T = res_core["T_S_over_D_range"]
+    D, D_cap, D_S_cut = res_core["D"], res_core["D_star"], res_core["D_S_cut"]
+    ts_min, ts_max = res_core["T_S_range"]
     s_ylim = (-0.15, 1.08) if min(all_r) >= 0.0 else (-1.05, 1.08)
 
     T_PG_low = res_stress["finite_T_pg"]["T_PG_low"]
@@ -1578,17 +1755,17 @@ def draw_panel_g(ax: plt.Axes, res_core: dict, res_stress: dict, colors: dict, s
     ax.axhline(1.0, color="dimgray", ls="-.", lw=1.0, alpha=0.6)
     ax.axvline(T_PG_mid / D, color="dimgray", ls="--", lw=1.0, alpha=0.65)
     ax.axvline(T_PG_high / D, color="k", ls="-.", lw=1.0, alpha=0.65)
-    ax.set_xlim(x_min_T, x_max_T)
+    ax.set_xlim(ts_min / D, ts_max / D)
     ax.set_ylim(*s_ylim)
     ax.set_xlabel(r"Probe Temperature $T_S / D$", fontsize=fs["label"])
     ax.set_ylabel(r"Reconstructed Entropy $S_{\mathrm{recon}}(0) / \ln 2$", fontsize=fs["label"])
     ax.set_title(
         f"(g) Test 2: Varying Bath Temp $T_{{\\mathrm{{PG}}}}/D \\in "
-        f"\\{{{T_PG_low/D:g}, {T_PG_mid/D:g}, {T_PG_high/D:g}\\}}$ ($D_S={D_S_cut/D:g}D$)",
+        f"\\{{{T_PG_low/D:g}, {T_PG_mid/D:g}, {T_PG_high/D:g}\\}}$ ($D_S={D_S_cut/D_cap:g}D^*$)",
         fontsize=fs["title"],
     )
     handles = [
-        Line2D([0], [0], color="k", ls="-", lw=1.8, label=f"Exact Finite-Cutoff (Eq. 11, $D_S={D_S_cut/D:g}D$, indep. of $T_{{\\mathrm{{PG}}}}$)"),
+        Line2D([0], [0], color="k", ls="-", lw=1.8, label=f"Exact Finite-Cutoff (Eq. 11, $D_S={D_S_cut/D_cap:g}D^*$, indep. of $T_{{\\mathrm{{PG}}}}$)"),
         Line2D([0], [0], color="k", ls="--", lw=1.2, label=r"Unbounded Note Limit (Eq. 12, $D_S\to\infty$)"),
         Line2D([0], [0], color="k", marker="o", ls="None", ms=5.5, label=f"Tight-Binding: $T_{{\\mathrm{{PG}}}}/D = {T_PG_low/D:g}$"),
         Line2D([0], [0], color="k", marker="s", ls="None", ms=6.2, fillstyle="none", mew=1.4, label=f"Tight-Binding: $T_{{\\mathrm{{PG}}}}/D = {T_PG_mid/D:g}$"),
@@ -1596,23 +1773,29 @@ def draw_panel_g(ax: plt.Axes, res_core: dict, res_stress: dict, colors: dict, s
     ]
     if standalone:
         handles += [Line2D([0], [0], color=colors[r], lw=2.2, label=f"$r = {r:+.1f}$") for r in all_r]
-    ax.legend(handles=handles, frameon=True, facecolor="white", fontsize=fs["legend"] * 0.85, loc="upper left")
+    ax.legend(handles=handles, frameon=True, facecolor="white", fontsize=fs["legend"] * 0.85, loc="lower left")
     _apply_kc_axes_polish(ax, fs)
 
 
 def draw_panel_h(ax: plt.Axes, res_core: dict, res_stress: dict, colors: dict, standalone: bool = False) -> None:
     fs = _kc_font_sizes(standalone)
     all_r = sorted(res_core["sweeps"].keys())
-    D, T_PG_base = res_core["D"], res_core["T_PG_base"]
-    x_min_T, x_max_T = res_core["T_S_over_D_range"]
+    D, D_cap, T_PG_base = res_core["D"], res_core["D_star"], res_core["T_PG_base"]
+    ts_min, ts_max = res_core["T_S_range"]
     s_ylim = (-0.15, 1.08) if min(all_r) >= 0.0 else (-1.05, 1.08)
 
     D_S_list = res_stress["probe_profiles"]["D_S_list"]
+    base_styles = [
+        ("-",  "o", 1.8, True),
+        ("--", "s", 1.5, False),
+        ("-.", "d", 1.4, False),
+        (":",  "^", 1.4, False),
+        ("-",  "v", 1.3, False),
+    ]
+    ds_desc = sorted(D_S_list, reverse=True)
     ds_styles = [
-        (D_S_list[3], "-", "o", 1.8, True, f"Cutoff $D_S = {D_S_list[3]/D:g}D = D^*$ (Eq. 11 & TB)"),
-        (D_S_list[2], "--", "s", 1.5, False, f"Cutoff $D_S = {D_S_list[2]/D:g}D$ (Eq. 11 & TB)"),
-        (D_S_list[1], "-.", "d", 1.4, False, f"Cutoff $D_S = {D_S_list[1]/D:g}D$ (Eq. 11 & TB)"),
-        (D_S_list[0], ":", "^", 1.4, False, f"Cutoff $D_S = {D_S_list[0]/D:g}D$ (Eq. 11 & TB)"),
+        (ds_val, *base_styles[idx % len(base_styles)], f"Cutoff $D_S = {ds_val/D_cap:g}D^*$ (Eq. 11 & TB)")
+        for idx, ds_val in enumerate(ds_desc)
     ]
     for r, pdata in res_stress["probe_profiles"]["by_r"].items():
         ax.semilogx(pdata["T_S_dense"] / D, pdata["eq12_curve"], "-", color=colors[r], lw=0.9, alpha=0.30)
@@ -1628,12 +1811,12 @@ def draw_panel_h(ax: plt.Axes, res_core: dict, res_stress: dict, colors: dict, s
     ax.axhline(1.0, color="dimgray", ls="-.", lw=1.0, alpha=0.6)
     for ds_val, ls_v, _, _, _, _ in ds_styles[1:]:
         ax.axvline(ds_val / D, color="dimgray", ls=ls_v, lw=1.0, alpha=0.60)
-    ax.set_xlim(x_min_T, x_max_T)
+    ax.set_xlim(ts_min / D, ts_max / D)
     ax.set_ylim(*s_ylim)
     ax.set_xlabel(r"Probe Temperature $T_S / D$", fontsize=fs["label"])
     ax.set_ylabel(r"Reconstructed Entropy $S_{\mathrm{recon}}(0) / \ln 2$", fontsize=fs["label"])
-    ds_str_list = ", ".join(f"{ds/D:g}" for ds in D_S_list)
-    ax.set_title(f"(h) Test 3: Probe Cutoffs $D_S/D \\in \\{{{ds_str_list}\\}}$ ($T_{{\\mathrm{{PG}}}}/D={T_PG_base/D:g}$)", fontsize=fs["title"])
+    ds_str_list = ", ".join(f"{ds/D_cap:g}" for ds in ds_desc)
+    ax.set_title(f"(h) Test 3: Probe Cutoffs $D_S/D^* \\in \\{{{ds_str_list}\\}}$ ($T_{{\\mathrm{{PG}}}}/D={T_PG_base/D:g}$)", fontsize=fs["title"])
     handles = [
         Line2D([0], [0], color="k", marker=mk_v, ls=ls_v, ms=5.0, lw=lw_v,
                fillstyle="full" if filled else "none", mew=1.3, label=lbl)
@@ -1650,12 +1833,14 @@ def draw_panel_h(ax: plt.Axes, res_core: dict, res_stress: dict, colors: dict, s
 def draw_panel_A(ax: plt.Axes, res_core: dict, colors: dict, standalone: bool = False) -> None:
     """
     Main Plot (A): Entropy S(0)/ln 2 vs. Probe Temperature T_S/D (11 log-spaced points)
-    at fixed T_PG = T_min (matching Plot B), keeping the figure clean and uncluttered.
+    at fixed T_PG = T_min (matching Plot B).
+      - When D = D*:      T_S / D spans [1e-3, 1].
+      - When D = D* / 10: T_S / D spans [1e-2, 10].
     """
     fs = _kc_font_sizes(standalone)
     all_r = sorted(res_core["sweeps"].keys())
     D = res_core["D"]
-    x_min_T, x_max_T = res_core["T_S_over_D_range"]
+    ts_min, ts_max = res_core["T_S_range"]
     s_ylim = (-0.15, 1.08) if min(all_r) >= 0.0 else (-1.05, 1.08)
 
     for r in all_r:
@@ -1668,7 +1853,7 @@ def draw_panel_A(ax: plt.Axes, res_core: dict, colors: dict, standalone: bool = 
         ax.axhline(r, color=colors[r], ls=":", lw=1.0, alpha=0.55)
 
     ax.axhline(1.0, color="dimgray", ls="-.", lw=1.0, alpha=0.6)
-    ax.set_xlim(x_min_T, x_max_T)
+    ax.set_xlim(ts_min / D, ts_max / D)
     ax.set_ylim(*s_ylim)
     ax.set_xlabel(r"Probe Temperature $T_S / D$", fontsize=fs["label"])
     ax.set_ylabel(r"Entropy $S(0) / \ln 2$", fontsize=fs["label"])
@@ -1695,17 +1880,18 @@ def draw_panel_A(ax: plt.Axes, res_core: dict, colors: dict, standalone: bool = 
 def draw_panel_B(ax: plt.Axes, res_core: dict, standalone: bool = False) -> None:
     """
     Main Plot (B): Entropy S(0) / ln 2 as a function of -1 < r < 1
-    across T_S / D in {1e-3, 1e-2, 1e-1, 1} at the same fixed parameters as Plot (A).
+    across all physical decade values of T_S / D inside [T_min/D, D*/D].
     """
     fs = _kc_font_sizes(standalone)
+    D = res_core["D"]
     panel_B_data = res_core["panel_B"]
-    ts_mults = panel_B_data["ts_over_d_list"]
+    ts_list = panel_B_data["ts_list"]
 
     ts_styles = [
-        ("#0072b2", "-",  "o", "full"),   # T_S/D = 1e-3
-        ("#009e73", "--", "s", "none"),   # T_S/D = 1e-2
-        ("#e69f00", "-.", "^", "none"),   # T_S/D = 1e-1
-        ("#cc79a7", ":",  "d", "none"),   # T_S/D = 1
+        ("#0072b2", "-",  "o", "full"),
+        ("#009e73", "--", "s", "none"),
+        ("#e69f00", "-.", "^", "none"),
+        ("#cc79a7", ":",  "d", "none"),
     ]
 
     r_diag = np.linspace(-0.98, 0.98, 120)
@@ -1713,12 +1899,13 @@ def draw_panel_B(ax: plt.Axes, res_core: dict, standalone: bool = False) -> None
     ax.axhline(0.0, color="gray", ls=":", lw=0.7, alpha=0.45)
     ax.axvline(0.0, color="gray", ls=":", lw=0.7, alpha=0.45)
 
-    for idx, ts_mult in enumerate(ts_mults):
+    for idx, ts_val in enumerate(ts_list):
         col, ls_v, mk_v, fill_v = ts_styles[idx % len(ts_styles)]
-        cdata = panel_B_data["curves"][ts_mult]
-        exp_pow = int(round(np.log10(ts_mult)))
-        ts_tex = r"1" if np.isclose(ts_mult, 1.0) else (
-            rf"10^{{{exp_pow}}}" if np.isclose(ts_mult, 10.0 ** exp_pow) else f"{ts_mult:g}"
+        cdata = panel_B_data["curves"][ts_val]
+        ts_over_d = ts_val / D
+        exp_pow = int(round(np.log10(ts_over_d)))
+        ts_tex = r"1" if np.isclose(ts_over_d, 1.0) else (
+            rf"10^{{{exp_pow}}}" if np.isclose(ts_over_d, 10.0 ** exp_pow) else f"{ts_over_d:g}"
         )
         ax.plot(cdata["r_dense"], cdata["S_recon_exact"], ls=ls_v, color=col, lw=1.8)
         ax.plot(
@@ -1755,11 +1942,13 @@ def export_all_phase2_pdfs(
     probe_profile: ProbeProfileType,
     suffix: str,
     to_print_keys: List[str],
+    results_dir: str,
+    plots_dir: str,
 ) -> None:
     """
-    Generate exclusively vector PDF outputs inside `results/phase2v2/`:
+    Generate exclusively vector PDF outputs inside `results/phase2v2_{preset_name}/`:
       1. `phase2_main_AB_{profile}{suffix}.pdf`: Side-by-side Main Plots (A) and (B) with a
-         common upper banner reporting all shared fixed parameters.
+         common upper banner reporting all shared fixed parameters in terms of D*.
       2. `phase2_verification_{profile}{suffix}.pdf`: Full 3-row diagnostic multi-plot
          (Row 1: a-d, Row 2: e-h, Row 3: A & B).
       3. `phase2plots/panel_<key>_{profile}{suffix}.pdf`: Individual PDFs for `to_print_keys`.
@@ -1775,6 +1964,7 @@ def export_all_phase2_pdfs(
     D_S_cut = res_core["D_S_cut"]
     T_PG_base = res_core["T_PG_base"]
     T_S_fixed = res_core["T_S_fixed"]
+    preset_name = res_core["preset_name"]
 
     probe_formula_tex = (
         r"\Gamma_S(\omega) = \Gamma_{S,0}\,\Theta(D_S - |\omega|)"
@@ -1782,15 +1972,20 @@ def export_all_phase2_pdfs(
         else r"\Gamma_S(\omega) = \Gamma_{S,0} / [1 + (\omega/D_S)^2]"
     )
 
+    d_tex = r"D = D^*" if np.isclose(D, D_cap) else rf"D = {D/D_cap:g}D^*"
+    ds_tex = r"D_S = D^*" if np.isclose(D_S_cut, D_cap) else rf"D_S = {D_S_cut/D_cap:g}D^*"
+
+    # Keep {preset_name} outside math delimiters so underscores render as literal text
     shared_params_banner = (
+        f"Preset: {preset_name}  |  "
         f"$\\Gamma_{{\\mathrm{{PG}}}}(\\omega) = \\Gamma_0 |\\omega|^r$,   "
         f"${probe_formula_tex}$,   "
         f"$\\rho = T_{{\\min}}/D^* = {rho:.0e}$\n"
-        f"Fixed Constants:  $D = D^* = {D_cap:g}$,   "
-        f"$\\Gamma_0 = {Gamma0/D:g}D$,   "
-        f"$\\Gamma_{{S,0}} = {GammaS0/D:g}D$,   "
-        f"$T_{{\\mathrm{{PG}}}} = {T_PG_base/D:g}D$,   "
-        f"$D_S = {D_S_cut/D:g}D$"
+        f"Fixed Constants ($D^* = {D_cap:g}$):  ${d_tex}$,   "
+        f"${ds_tex}$,   "
+        f"$\\Gamma_0 = {Gamma0/D_cap:g}D^*$,   "
+        f"$\\Gamma_{{S,0}} = {GammaS0/D_cap:g}D^*$,   "
+        f"$T_{{\\mathrm{{PG}}}} = {T_PG_base/D_cap:g}D^*$"
     )
 
     # -------------------------------------------------------------------------
@@ -1808,14 +2003,13 @@ def export_all_phase2_pdfs(
     draw_panel_A(ax_A, res_core, colors, standalone=True)
     draw_panel_B(ax_B, res_core, standalone=True)
 
-    # Common upper legend / parameter box reporting all shared fixed constants
     fig_ab.text(
         0.526, 0.962, shared_params_banner,
-        ha="center", va="top", fontsize=12.5,
+        ha="center", va="top", fontsize=12.2,
         bbox=dict(boxstyle="round,pad=0.45", facecolor="#f8f9fa", edgecolor="#cccccc", linewidth=0.6),
     )
 
-    main_ab_path = os.path.join(RESULTS_DIR, f"phase2_main_AB_{probe_profile}{suffix}.pdf")
+    main_ab_path = os.path.join(results_dir, f"phase2_main_AB_{probe_profile}{suffix}.pdf")
     fig_ab.savefig(main_ab_path, format="pdf", bbox_inches="tight", pad_inches=0.12)
     plt.close(fig_ab)
     print(f"Saved side-by-side Main (A, B) PDF to '{main_ab_path}'.", flush=True)
@@ -1863,23 +2057,22 @@ def export_all_phase2_pdfs(
         edgecolor="#cccccc",
         fontsize=11.5,
         title=(
-            f"Phase 2 Verification Suite  ($r \\in \\{{0.3, 0.5\\}}$ for a–h & A;  $r \\in (-1, 1)$ for B | "
-            f"Probe: ${probe_formula_tex}$,  $\\rho = T_{{\\min}}/D^* = {rho:.0e}$,  $D^* = {D_cap:g}$)\n"
-            f"Config ({res_core['preset_name']}):  "
-            f"$\\Gamma_0 = D^* = {Gamma0/D:g}D$,  $\\Gamma_{{S,0}} = T_{{\\min}} = {GammaS0/D:g}D$ "
+            f"Phase 2 Verification Suite  (Probe: ${probe_formula_tex}$,  $\\rho = T_{{\\min}}/D^* = {rho:.0e}$,  $D^* = {D_cap:g}$)\n"
+            f"Preset ({preset_name}):  ${d_tex}$,  ${ds_tex}$,  "
+            f"$\\Gamma_0 = {Gamma0/D_cap:g}D^*$,  $\\Gamma_{{S,0}} = {GammaS0/D_cap:g}D^*$ "
             f"($\\Gamma_{{S,0}}/\\Gamma_0 = {ratio_S_ref:.1e}$),  "
-            f"$D_S = {D_S_cut/D:g}D$,  $T_{{\\mathrm{{PG}}}} = {T_PG_base/D:g}D$,  $T_S = {T_S_fixed/D:g}D$"
+            f"$T_{{\\mathrm{{PG}}}} = {T_PG_base/D_cap:g}D^*$,  $T_S = {T_S_fixed/D_cap:g}D^*$"
         ),
         title_fontsize=11.0,
     )
 
-    ver_pdf_path = os.path.join(RESULTS_DIR, f"phase2_verification_{probe_profile}{suffix}.pdf")
+    ver_pdf_path = os.path.join(results_dir, f"phase2_verification_{probe_profile}{suffix}.pdf")
     fig_ver.savefig(ver_pdf_path, format="pdf", bbox_inches="tight", pad_inches=0.20)
     plt.close(fig_ver)
     print(f"Saved 3-row Verification PDF to '{ver_pdf_path}'.", flush=True)
 
     # -------------------------------------------------------------------------
-    # 3. Selective Standalone Panel PDFs in `results/phase2v2/phase2plots/` (`TO_PRINT`)
+    # 3. Selective Standalone Panel PDFs in `phase2plots/` (`TO_PRINT`)
     # -------------------------------------------------------------------------
     panel_dispatch = {
         "a": lambda ax: draw_panel_a(ax, res_core, colors, standalone=True),
@@ -1902,18 +2095,18 @@ def export_all_phase2_pdfs(
         if pkey in ("A", "B"):
             fig_single.text(
                 0.555, 0.965,
-                f"$D = D^* = {D_cap:g},\\; \\Gamma_0 = {Gamma0/D:g}D,\\; "
-                f"\\Gamma_{{S,0}} = {GammaS0/D:g}D,\\; T_{{\\mathrm{{PG}}}} = {T_PG_base/D:g}D,\\; "
-                f"D_S = {D_S_cut/D:g}D$",
-                ha="center", va="top", fontsize=10.5,
+                f"{preset_name} ($D^*={D_cap:g}$): ${d_tex},\\; {ds_tex},\\; "
+                f"\\Gamma_0 = {Gamma0/D_cap:g}D^*,\\; \\Gamma_{{S,0}} = {GammaS0/D_cap:g}D^*,\\; "
+                f"T_{{\\mathrm{{PG}}}} = {T_PG_base/D_cap:g}D^*$",
+                ha="center", va="top", fontsize=10.2,
                 bbox=dict(boxstyle="round,pad=0.35", facecolor="#f8f9fa", edgecolor="#cccccc", linewidth=0.5),
             )
-        single_pdf_path = os.path.join(PHASE2_PLOTS_DIR, f"panel_{pkey}_{probe_profile}{suffix}.pdf")
+        single_pdf_path = os.path.join(plots_dir, f"panel_{pkey}_{probe_profile}{suffix}.pdf")
         fig_single.savefig(single_pdf_path, format="pdf", bbox_inches="tight", pad_inches=0.10)
         plt.close(fig_single)
 
     print(
-        f"Saved requested TO_PRINT={to_print_keys} individual PDFs to '{PHASE2_PLOTS_DIR}/'.",
+        f"Saved requested TO_PRINT={to_print_keys} individual PDFs to '{plots_dir}/'.",
         flush=True,
     )
 
@@ -1924,16 +2117,22 @@ def export_all_phase2_pdfs(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run Phase 2 Two-Bath Benchmarks (benchmark2v2).")
     parser.add_argument(
+        "--preset",
+        type=str,
+        default=None,
+        help="Preset name ('low_T_default', 'low_T_shortPGband', 'low_T_shortSband', 'low_Tshortbands', or 'all').",
+    )
+    parser.add_argument(
         "--rho",
         type=float,
         default=RHO,
-        help="Dynamic range ratio rho = T_min / D* (with D* = 1.0, Gamma0 = D*, GammaS0 = T_min).",
+        help="Dynamic range ratio rho = T_min / D* (with D* = 1.0 fixed).",
     )
     parser.add_argument(
         "--to-print",
         nargs="+",
         default=None,
-        help="Panel letters to export individually to `results/phase2v2/phase2plots/` (default: A B).",
+        help="Panel letters to export individually to `phase2plots/` (default: A B).",
     )
     parser.add_argument(
         "--workers",
@@ -1944,46 +2143,71 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     active_to_print = sanitize_to_print(args.to_print if args.to_print is not None else TO_PRINT)
-    cfg = make_config_from_rho(rho=args.rho)
-    sync_presets_json(cfg)
+    catalog = build_preset_catalog(rho=args.rho)
+    sync_presets_json(catalog)
+
+    if args.preset is not None:
+        presets_to_run = list(catalog.keys()) if args.preset == "all" else [args.preset]
+    elif isinstance(ACTIVE_PRESET, (list, tuple)):
+        presets_to_run = list(ACTIVE_PRESET)
+    elif ACTIVE_PRESET == "all":
+        presets_to_run = list(catalog.keys())
+    else:
+        presets_to_run = [ACTIVE_PRESET]
+
+    for pname in presets_to_run:
+        if pname not in catalog:
+            raise ValueError(f"Unknown preset '{pname}'. Available presets: {list(catalog.keys())}")
 
     max_cpu, default_workers = get_worker_count(run_on_slurm=RUN_ON_SLURM, reserved_cpus=PC_RESERVED_CPUS)
     n_workers = max(1, int(args.workers)) if args.workers is not None else default_workers
-    suffix = cfg["file_suffix"]
 
     print(
         f"Initializing Phase 2 Suite (benchmark2v2) | RUN_ON_SLURM={RUN_ON_SLURM} | PROJECT_ROOT='{PROJECT_ROOT}'\n"
-        f"Active Config: {cfg['description']}\n"
-        f"TO_PRINT Panels: {active_to_print} -> '{PHASE2_PLOTS_DIR}/'\n"
+        f"Presets to Run: {presets_to_run}\n"
+        f"TO_PRINT Panels: {active_to_print}\n"
         f"CPU Pool: {n_workers} active workers (out of {max_cpu} logical CPUs)\n",
         flush=True,
     )
 
     with ProcessPoolExecutor(max_workers=n_workers, initializer=_worker_init) as executor:
-        for profile_mode in ("flat_band", "lorentzian"):
-            res_core, res_stress, telem_summary = run_phase2_parallel_suite(
-                cfg=cfg,
-                probe_profile=profile_mode,
-                executor=executor,
-                max_cpu=max_cpu,
-                n_workers=n_workers,
-                r_list=R_LIST_ALL,
+        for preset_key in presets_to_run:
+            cfg = catalog[preset_key]
+            results_dir, plots_dir = get_preset_dirs(preset_key)
+            suffix = cfg["file_suffix"]
+
+            print(
+                f">>> Running Preset '{preset_key}' -> Output Folder: '{results_dir}/'\n"
+                f"    {cfg['description']}",
+                flush=True,
             )
 
-            export_all_phase2_pdfs(
-                res_core=res_core,
-                res_stress=res_stress,
-                probe_profile=profile_mode,
-                suffix=suffix,
-                to_print_keys=active_to_print,
-            )
+            for profile_mode in ("flat_band", "lorentzian"):
+                res_core, res_stress, telem_summary = run_phase2_parallel_suite(
+                    cfg=cfg,
+                    probe_profile=profile_mode,
+                    executor=executor,
+                    max_cpu=max_cpu,
+                    n_workers=n_workers,
+                    r_list=R_LIST_ALL,
+                )
 
-            table_path = os.path.join(RESULTS_DIR, f"phase2_summary_{profile_mode}{suffix}.txt")
-            with open(table_path, "w", encoding="utf-8") as f_out:
-                f_out.write("\n".join(res_core["log_lines"] + res_stress["log_lines"]) + "\n")
-            print(f"Saved Phase 2 ({profile_mode}) summary table to '{table_path}'.", flush=True)
+                export_all_phase2_pdfs(
+                    res_core=res_core,
+                    res_stress=res_stress,
+                    probe_profile=profile_mode,
+                    suffix=suffix,
+                    to_print_keys=active_to_print,
+                    results_dir=results_dir,
+                    plots_dir=plots_dir,
+                )
 
-            telem_path = os.path.join(RESULTS_DIR, f"phase2_telemetry_{profile_mode}{suffix}.json")
-            with open(telem_path, "w", encoding="utf-8") as f_tel:
-                json.dump(telem_summary, f_tel, indent=2)
-            print(f"Saved Phase 2 ({profile_mode}) telemetry report to '{telem_path}'.\n", flush=True)
+                table_path = os.path.join(results_dir, f"phase2_summary_{profile_mode}{suffix}.txt")
+                with open(table_path, "w", encoding="utf-8") as f_out:
+                    f_out.write("\n".join(res_core["log_lines"] + res_stress["log_lines"]) + "\n")
+                print(f"Saved Phase 2 ({profile_mode}) summary table to '{table_path}'.", flush=True)
+
+                telem_path = os.path.join(results_dir, f"phase2_telemetry_{profile_mode}{suffix}.json")
+                with open(telem_path, "w", encoding="utf-8") as f_tel:
+                    json.dump(telem_summary, f_tel, indent=2)
+                print(f"Saved Phase 2 ({profile_mode}) telemetry report to '{telem_path}'.\n", flush=True)

@@ -1,33 +1,42 @@
 {
   "low_T_default": {
     "preset_name": "low_T_default",
-    "description": "Low-T_S default with D_S = D = D* = 1.0, Gamma0 = 0.1D, GS0 = T_PG = 1e-4D, T_S = 1e-3D",
+    "description": "Default setup: D = D*, D_S = D*, Gamma0 = D*, GammaS0 = T_PG = T_min",
+    "rho": 0.001,
     "D": 1.0,
+    "D_star": 1.0,
+    "T_min": 0.001,
     "Gamma0": 1.0,
-    "GammaS0": 0.0001,
+    "GammaS0": 0.001,
     "D_S_cut": 1.0,
-    "T_PG": 0.0001,
-    "T_S_fixed": 0.001,
-    "T_S_over_D_range": [
-      0.0001,
+    "T_PG": 0.001,
+    "T_S_fixed": 0.01,
+    "T_S_range": [
+      0.001,
       1.0
     ],
     "GS_over_G0_range": [
       0.001,
       0.1
     ],
-    "T_PG_over_D_list": [
-      0.0001,
-      0.005,
-      0.05
+    "T_PG_list": [
+      0.001,
+      0.010000000000000002,
+      0.10000000000000002
     ],
-    "D_S_over_D_list": [
+    "D_S_list": [
+      0.001,
+      0.010000000000000002,
+      0.10000000000000002,
+      1.0
+    ],
+    "TS_panel_B": [
       0.001,
       0.01,
       0.1,
       1.0
     ],
-    "file_suffix": ""
+    "file_suffix": "_low_T_default_rho1e-03"
   },
   "high_T_plateau": {
     "preset_name": "high_T_plateau",
@@ -364,5 +373,782 @@
       1.0
     ],
     "file_suffix": "_rho1e-03"
+  },
+  "low_T_shortPGband": {
+    "preset_name": "low_T_shortPGband",
+    "description": "Short power-law bath band: D = D*/10, D_S = D* (all constants via D*)",
+    "rho": 0.001,
+    "D": 0.1,
+    "D_star": 1.0,
+    "T_min": 0.001,
+    "Gamma0": 1.0,
+    "GammaS0": 0.001,
+    "D_S_cut": 1.0,
+    "T_PG": 0.001,
+    "T_S_fixed": 0.01,
+    "T_S_range": [
+      0.001,
+      1.0
+    ],
+    "GS_over_G0_range": [
+      0.001,
+      0.1
+    ],
+    "T_PG_list": [
+      0.001,
+      0.010000000000000002,
+      0.10000000000000002
+    ],
+    "D_S_list": [
+      0.001,
+      0.010000000000000002,
+      0.10000000000000002,
+      1.0
+    ],
+    "TS_panel_B": [
+      0.001,
+      0.01,
+      0.1,
+      1.0
+    ],
+    "file_suffix": "_low_T_shortPGband_rho1e-03"
+  },
+  "low_T_shortSband": {
+    "preset_name": "low_T_shortSband",
+    "description": "Short probe bath band: D = D*, D_S = D*/10 (all constants via D*)",
+    "rho": 0.001,
+    "D": 1.0,
+    "D_star": 1.0,
+    "T_min": 0.001,
+    "Gamma0": 1.0,
+    "GammaS0": 0.001,
+    "D_S_cut": 0.1,
+    "T_PG": 0.001,
+    "T_S_fixed": 0.01,
+    "T_S_range": [
+      0.001,
+      1.0
+    ],
+    "GS_over_G0_range": [
+      0.001,
+      0.1
+    ],
+    "T_PG_list": [
+      0.001,
+      0.010000000000000002,
+      0.10000000000000002
+    ],
+    "D_S_list": [
+      0.001,
+      0.010000000000000002,
+      0.1,
+      0.10000000000000002,
+      1.0
+    ],
+    "TS_panel_B": [
+      0.001,
+      0.01,
+      0.1,
+      1.0
+    ],
+    "file_suffix": "_low_T_shortSband_rho1e-03"
+  },
+  "low_Tshortbands": {
+    "preset_name": "low_Tshortbands",
+    "description": "Short PG and probe bands: D = D_S = D*/10 (all constants via D*)",
+    "rho": 0.001,
+    "D": 0.1,
+    "D_star": 1.0,
+    "T_min": 0.001,
+    "Gamma0": 1.0,
+    "GammaS0": 0.001,
+    "D_S_cut": 0.1,
+    "T_PG": 0.001,
+    "T_S_fixed": 0.01,
+    "T_S_range": [
+      0.001,
+      1.0
+    ],
+    "GS_over_G0_range": [
+      0.001,
+      0.1
+    ],
+    "T_PG_list": [
+      0.001,
+      0.010000000000000002,
+      0.10000000000000002
+    ],
+    "D_S_list": [
+      0.001,
+      0.010000000000000002,
+      0.1,
+      0.10000000000000002,
+      1.0
+    ],
+    "TS_panel_B": [
+      0.001,
+      0.01,
+      0.1,
+      1.0
+    ],
+    "file_suffix": "_low_Tshortbands_rho1e-03"
+  },
+  "low_G0_highT": {
+    "preset_name": "low_G0_highT",
+    "description": "Weak-Gamma0 high-T crossover setup: Gamma0 = D*/10 (same GS0/G0 scan range)",
+    "rho": 0.001,
+    "D": 1.0,
+    "D_star": 1.0,
+    "T_min": 0.001,
+    "Gamma0": 0.1,
+    "GammaS0": 0.001,
+    "D_S_cut": 1.0,
+    "T_PG": 0.001,
+    "T_S_fixed": 0.01,
+    "T_S_range": [
+      0.001,
+      1.0
+    ],
+    "GS_over_G0_range": [
+      0.001,
+      0.1
+    ],
+    "T_PG_list": [
+      0.001,
+      0.010000000000000002,
+      0.10000000000000002
+    ],
+    "D_S_list": [
+      0.001,
+      0.010000000000000002,
+      0.10000000000000002,
+      1.0
+    ],
+    "TS_panel_B": [
+      0.001,
+      0.01,
+      0.1,
+      1.0
+    ],
+    "file_suffix": "_low_G0_highT_rho1e-03"
+  },
+  "Ds_to_D_is_k": {
+    "preset_name": "Ds_to_D_is_k",
+    "description": "D = D*/1, D_S = D/10 (all other constants via D*)",
+    "rho": 0.001,
+    "D": 1.0,
+    "D_star": 1.0,
+    "T_min": 0.001,
+    "Gamma0": 1.0,
+    "GammaS0": 0.001,
+    "D_S_cut": 0.1,
+    "T_PG": 0.001,
+    "T_S_fixed": 0.01,
+    "T_S_range": [
+      0.001,
+      1.0
+    ],
+    "GS_over_G0_range": [
+      0.001,
+      0.1
+    ],
+    "T_PG_list": [
+      0.001,
+      0.010000000000000002,
+      0.10000000000000002
+    ],
+    "D_S_list": [
+      0.001,
+      0.010000000000000002,
+      0.1,
+      0.10000000000000002,
+      1.0
+    ],
+    "TS_panel_B": [
+      0.001,
+      0.01,
+      0.1,
+      1.0
+    ],
+    "file_suffix": "_Ds_to_D_is_k_rho1e-03",
+    "d": 1.0,
+    "k": 10.0
+  },
+  "low_T_default_rho1e-03": {
+    "preset_name": "low_T_default",
+    "description": "Default setup: D = D*, D_S = D*, Gamma0 = D*, GammaS0 = T_PG = T_min",
+    "rho": 0.001,
+    "D": 1.0,
+    "D_star": 1.0,
+    "T_min": 0.001,
+    "Gamma0": 1.0,
+    "GammaS0": 0.001,
+    "D_S_cut": 1.0,
+    "T_PG": 0.001,
+    "T_S_fixed": 0.01,
+    "T_S_range": [
+      0.001,
+      1.0
+    ],
+    "GS_over_G0_range": [
+      0.001,
+      0.1
+    ],
+    "T_PG_list": [
+      0.001,
+      0.010000000000000002,
+      0.10000000000000002
+    ],
+    "D_S_list": [
+      0.001,
+      0.010000000000000002,
+      0.10000000000000002,
+      1.0
+    ],
+    "TS_panel_B": [
+      0.001,
+      0.01,
+      0.1,
+      1.0
+    ],
+    "double_squeeze": {
+      "0.3": {
+        "r": 0.3,
+        "T_IR": 9.99999999999999e-11,
+        "T_star": 1.0,
+        "T_UV_eff": 0.15,
+        "T_low_opt": 0.03162277660168379,
+        "T_high_opt": 0.3872983346207417,
+        "low_window_decades": 3.0,
+        "high_window_decades": -0.8239087409443188
+      },
+      "0.4": {
+        "r": 0.4,
+        "T_IR": 3.162277660168379e-08,
+        "T_star": 1.0,
+        "T_UV_eff": 0.15,
+        "T_low_opt": 0.03162277660168379,
+        "T_high_opt": 0.3872983346207417,
+        "low_window_decades": 3.0,
+        "high_window_decades": -0.8239087409443188
+      },
+      "0.5": {
+        "r": 0.5,
+        "T_IR": 1e-06,
+        "T_star": 1.0,
+        "T_UV_eff": 0.15,
+        "T_low_opt": 0.03162277660168379,
+        "T_high_opt": 0.3872983346207417,
+        "low_window_decades": 3.0,
+        "high_window_decades": -0.8239087409443188
+      }
+    },
+    "file_suffix": "_low_T_default_rho1e-03"
+  },
+  "low_G0_highT_rho1e-03": {
+    "preset_name": "low_G0_highT",
+    "description": "Weak-Gamma0 high-T crossover setup: Gamma0 = D*/10 (same GS0/G0 scan range)",
+    "rho": 0.001,
+    "D": 1.0,
+    "D_star": 1.0,
+    "T_min": 0.001,
+    "Gamma0": 0.1,
+    "GammaS0": 0.001,
+    "D_S_cut": 1.0,
+    "T_PG": 0.001,
+    "T_S_fixed": 0.01,
+    "T_S_range": [
+      0.001,
+      1.0
+    ],
+    "GS_over_G0_range": [
+      0.001,
+      0.1
+    ],
+    "T_PG_list": [
+      0.001,
+      0.010000000000000002,
+      0.10000000000000002
+    ],
+    "D_S_list": [
+      0.001,
+      0.010000000000000002,
+      0.10000000000000002,
+      1.0
+    ],
+    "TS_panel_B": [
+      0.001,
+      0.01,
+      0.1,
+      1.0
+    ],
+    "double_squeeze": {
+      "0.3": {
+        "r": 0.3,
+        "T_IR": 2.1544346900318824e-07,
+        "T_star": 0.0372759372031494,
+        "T_UV_eff": 0.15,
+        "T_low_opt": 0.006105402296585329,
+        "T_high_opt": 0.0747756015052531,
+        "low_window_decades": 1.5714285714285714,
+        "high_window_decades": 0.6046626876271097
+      },
+      "0.4": {
+        "r": 0.4,
+        "T_IR": 1e-05,
+        "T_star": 0.021544346900318836,
+        "T_UV_eff": 0.15,
+        "T_low_opt": 0.004641588833612779,
+        "T_high_opt": 0.05684762119075718,
+        "low_window_decades": 1.3333333333333333,
+        "high_window_decades": 0.842757925722348
+      },
+      "0.5": {
+        "r": 0.5,
+        "T_IR": 0.0001,
+        "T_star": 0.010000000000000002,
+        "T_UV_eff": 0.15,
+        "T_low_opt": 0.00316227766016838,
+        "T_high_opt": 0.03872983346207417,
+        "low_window_decades": 1.0,
+        "high_window_decades": 1.1760912590556811
+      }
+    },
+    "file_suffix": "_low_G0_highT_rho1e-03"
+  },
+  "Ds_to_D_is_k_rho1e-03": {
+    "preset_name": "Ds_to_D_is_k",
+    "description": "D = D*/1, D_S = D/10 (all other constants via D*)",
+    "rho": 0.001,
+    "D": 1.0,
+    "D_star": 1.0,
+    "T_min": 0.001,
+    "Gamma0": 1.0,
+    "GammaS0": 0.001,
+    "D_S_cut": 0.1,
+    "T_PG": 0.001,
+    "T_S_fixed": 0.01,
+    "T_S_range": [
+      0.001,
+      1.0
+    ],
+    "GS_over_G0_range": [
+      0.001,
+      0.1
+    ],
+    "T_PG_list": [
+      0.001,
+      0.010000000000000002,
+      0.10000000000000002
+    ],
+    "D_S_list": [
+      0.001,
+      0.010000000000000002,
+      0.1,
+      0.10000000000000002,
+      1.0
+    ],
+    "TS_panel_B": [
+      0.001,
+      0.01,
+      0.1,
+      1.0
+    ],
+    "double_squeeze": {
+      "0.3": {
+        "r": 0.3,
+        "T_IR": 9.99999999999999e-11,
+        "T_star": 1.0,
+        "T_UV_eff": 0.015,
+        "T_low_opt": 0.03162277660168379,
+        "T_high_opt": 0.1224744871391589,
+        "low_window_decades": 3.0,
+        "high_window_decades": -1.8239087409443189
+      },
+      "0.4": {
+        "r": 0.4,
+        "T_IR": 3.162277660168379e-08,
+        "T_star": 1.0,
+        "T_UV_eff": 0.015,
+        "T_low_opt": 0.03162277660168379,
+        "T_high_opt": 0.1224744871391589,
+        "low_window_decades": 3.0,
+        "high_window_decades": -1.8239087409443189
+      },
+      "0.5": {
+        "r": 0.5,
+        "T_IR": 1e-06,
+        "T_star": 1.0,
+        "T_UV_eff": 0.015,
+        "T_low_opt": 0.03162277660168379,
+        "T_high_opt": 0.1224744871391589,
+        "low_window_decades": 3.0,
+        "high_window_decades": -1.8239087409443189
+      }
+    },
+    "file_suffix": "_Ds_to_D_is_k_rho1e-03",
+    "d": 1.0,
+    "k": 10.0
+  },
+  "low_T_default_rho1e-04": {
+    "preset_name": "low_T_default",
+    "description": "Default setup: D = D*, D_S = D*, Gamma0 = D*, GammaS0 = T_PG = T_min",
+    "rho": 0.0001,
+    "D": 1.0,
+    "D_star": 1.0,
+    "T_min": 0.0001,
+    "Gamma0": 1.0,
+    "GammaS0": 0.0001,
+    "D_S_cut": 1.0,
+    "T_PG": 0.0001,
+    "T_S_fixed": 0.001,
+    "T_S_range": [
+      0.0001,
+      1.0
+    ],
+    "GS_over_G0_range": [
+      0.0001,
+      0.1
+    ],
+    "T_PG_list": [
+      0.0001,
+      0.0021544346900318847,
+      0.046415888336127795
+    ],
+    "D_S_list": [
+      0.0001,
+      0.0021544346900318847,
+      0.046415888336127795,
+      1.0
+    ],
+    "TS_panel_B": [
+      0.0001,
+      0.001,
+      0.01,
+      0.1,
+      1.0
+    ],
+    "double_squeeze": {
+      "0.3": {
+        "r": 0.3,
+        "T_IR": 4.641588833612773e-14,
+        "T_star": 1.0,
+        "T_UV_eff": 0.15,
+        "T_low_opt": 0.01,
+        "T_high_opt": 0.3872983346207417,
+        "low_window_decades": 4.0,
+        "high_window_decades": -0.8239087409443188
+      },
+      "0.4": {
+        "r": 0.4,
+        "T_IR": 1.0000000000000002e-10,
+        "T_star": 1.0,
+        "T_UV_eff": 0.15,
+        "T_low_opt": 0.01,
+        "T_high_opt": 0.3872983346207417,
+        "low_window_decades": 4.0,
+        "high_window_decades": -0.8239087409443188
+      },
+      "0.5": {
+        "r": 0.5,
+        "T_IR": 1e-08,
+        "T_star": 1.0,
+        "T_UV_eff": 0.15,
+        "T_low_opt": 0.01,
+        "T_high_opt": 0.3872983346207417,
+        "low_window_decades": 4.0,
+        "high_window_decades": -0.8239087409443188
+      }
+    },
+    "file_suffix": "_low_T_default_rho1e-04"
+  },
+  "low_G0_highT_rho1e-04": {
+    "preset_name": "low_G0_highT",
+    "description": "Weak-Gamma0 high-T crossover setup: Gamma0 = D*/10 (same GS0/G0 scan range)",
+    "rho": 0.0001,
+    "D": 1.0,
+    "D_star": 1.0,
+    "T_min": 0.0001,
+    "Gamma0": 0.1,
+    "GammaS0": 0.0001,
+    "D_S_cut": 1.0,
+    "T_PG": 0.0001,
+    "T_S_fixed": 0.001,
+    "T_S_range": [
+      0.0001,
+      1.0
+    ],
+    "GS_over_G0_range": [
+      0.0001,
+      0.1
+    ],
+    "T_PG_list": [
+      0.0001,
+      0.0021544346900318847,
+      0.046415888336127795
+    ],
+    "D_S_list": [
+      0.0001,
+      0.0021544346900318847,
+      0.046415888336127795,
+      1.0
+    ],
+    "TS_panel_B": [
+      0.0001,
+      0.001,
+      0.01,
+      0.1,
+      1.0
+    ],
+    "double_squeeze": {
+      "0.3": {
+        "r": 0.3,
+        "T_IR": 9.99999999999999e-11,
+        "T_star": 0.0372759372031494,
+        "T_UV_eff": 0.15,
+        "T_low_opt": 0.0019306977288832503,
+        "T_high_opt": 0.0747756015052531,
+        "low_window_decades": 2.5714285714285716,
+        "high_window_decades": 0.6046626876271097
+      },
+      "0.4": {
+        "r": 0.4,
+        "T_IR": 3.162277660168379e-08,
+        "T_star": 0.021544346900318836,
+        "T_UV_eff": 0.15,
+        "T_low_opt": 0.0014677992676220696,
+        "T_high_opt": 0.05684762119075718,
+        "low_window_decades": 2.3333333333333335,
+        "high_window_decades": 0.842757925722348
+      },
+      "0.5": {
+        "r": 0.5,
+        "T_IR": 1e-06,
+        "T_star": 0.010000000000000002,
+        "T_UV_eff": 0.15,
+        "T_low_opt": 0.001,
+        "T_high_opt": 0.03872983346207417,
+        "low_window_decades": 2.0,
+        "high_window_decades": 1.1760912590556811
+      }
+    },
+    "file_suffix": "_low_G0_highT_rho1e-04"
+  },
+  "Ds_to_D_is_k_rho1e-04": {
+    "preset_name": "Ds_to_D_is_k",
+    "description": "D = D*/1, D_S = D/10 (all other constants via D*)",
+    "rho": 0.0001,
+    "D": 1.0,
+    "D_star": 1.0,
+    "T_min": 0.0001,
+    "Gamma0": 1.0,
+    "GammaS0": 0.0001,
+    "D_S_cut": 0.1,
+    "T_PG": 0.0001,
+    "T_S_fixed": 0.001,
+    "T_S_range": [
+      0.0001,
+      1.0
+    ],
+    "GS_over_G0_range": [
+      0.0001,
+      0.1
+    ],
+    "T_PG_list": [
+      0.0001,
+      0.0021544346900318847,
+      0.046415888336127795
+    ],
+    "D_S_list": [
+      0.0001,
+      0.0021544346900318847,
+      0.046415888336127795,
+      0.1,
+      1.0
+    ],
+    "TS_panel_B": [
+      0.0001,
+      0.001,
+      0.01,
+      0.1,
+      1.0
+    ],
+    "double_squeeze": {
+      "0.3": {
+        "r": 0.3,
+        "T_IR": 4.641588833612773e-14,
+        "T_star": 1.0,
+        "T_UV_eff": 0.015,
+        "T_low_opt": 0.01,
+        "T_high_opt": 0.1224744871391589,
+        "low_window_decades": 4.0,
+        "high_window_decades": -1.8239087409443189
+      },
+      "0.4": {
+        "r": 0.4,
+        "T_IR": 1.0000000000000002e-10,
+        "T_star": 1.0,
+        "T_UV_eff": 0.015,
+        "T_low_opt": 0.01,
+        "T_high_opt": 0.1224744871391589,
+        "low_window_decades": 4.0,
+        "high_window_decades": -1.8239087409443189
+      },
+      "0.5": {
+        "r": 0.5,
+        "T_IR": 1e-08,
+        "T_star": 1.0,
+        "T_UV_eff": 0.015,
+        "T_low_opt": 0.01,
+        "T_high_opt": 0.1224744871391589,
+        "low_window_decades": 4.0,
+        "high_window_decades": -1.8239087409443189
+      }
+    },
+    "file_suffix": "_Ds_to_D_is_k_rho1e-04",
+    "d": 1.0,
+    "k": 10.0
+  },
+  "ParamSearch_rho1e-04": {
+    "preset_name": "ParamSearch",
+    "description": "ParamSearch (Double-Squeeze): D=1D*, D_S=1D*, Gamma0=0.1D*, GammaS0=1.0e-04D*, T_PG=1.0e-04D*",
+    "rho": 0.0001,
+    "D": 1.0,
+    "D_star": 1.0,
+    "T_min": 0.0001,
+    "Gamma0": 0.1,
+    "GammaS0": 0.0001,
+    "D_S_cut": 1.0,
+    "T_PG": 0.0001,
+    "T_S_fixed": 0.001,
+    "T_S_range": [
+      0.0001,
+      1.0
+    ],
+    "GS_over_G0_range": [
+      0.0001,
+      0.1
+    ],
+    "T_PG_list": [
+      0.0001,
+      0.0021544346900318847,
+      0.046415888336127795
+    ],
+    "D_S_list": [
+      0.0001,
+      0.0021544346900318847,
+      0.046415888336127795,
+      1.0
+    ],
+    "TS_panel_B": [
+      0.0007,
+      0.01,
+      0.04,
+      1.0
+    ],
+    "double_squeeze": {
+      "0.3": {
+        "r": 0.3,
+        "T_IR": 9.99999999999999e-11,
+        "T_star": 0.0372759372031494,
+        "T_UV_eff": 0.15,
+        "T_low_opt": 0.0019306977288832503,
+        "T_high_opt": 0.0747756015052531,
+        "low_window_decades": 2.5714285714285716,
+        "high_window_decades": 0.6046626876271097
+      },
+      "0.4": {
+        "r": 0.4,
+        "T_IR": 3.162277660168379e-08,
+        "T_star": 0.021544346900318836,
+        "T_UV_eff": 0.15,
+        "T_low_opt": 0.0014677992676220696,
+        "T_high_opt": 0.05684762119075718,
+        "low_window_decades": 2.3333333333333335,
+        "high_window_decades": 0.842757925722348
+      },
+      "0.5": {
+        "r": 0.5,
+        "T_IR": 1e-06,
+        "T_star": 0.010000000000000002,
+        "T_UV_eff": 0.15,
+        "T_low_opt": 0.001,
+        "T_high_opt": 0.03872983346207417,
+        "low_window_decades": 2.0,
+        "high_window_decades": 1.1760912590556811
+      }
+    },
+    "file_suffix": "_ParamSearch_rho1e-04"
+  },
+  "ParamSearch_rho1e-03": {
+    "preset_name": "ParamSearch",
+    "description": "ParamSearch (Double-Squeeze): D=1D*, D_S=1D*, Gamma0=0.1778D*, GammaS0=1.0e-03D*, T_PG=1.0e-03D*",
+    "rho": 0.001,
+    "D": 1.0,
+    "D_star": 1.0,
+    "T_min": 0.001,
+    "Gamma0": 0.1778279410038923,
+    "GammaS0": 0.001,
+    "D_S_cut": 1.0,
+    "T_PG": 0.001,
+    "T_S_fixed": 0.005623413251903491,
+    "T_S_range": [
+      0.001,
+      1.0
+    ],
+    "GS_over_G0_range": [
+      0.001,
+      0.1
+    ],
+    "T_PG_list": [
+      0.001,
+      0.010000000000000002,
+      0.10000000000000002
+    ],
+    "D_S_list": [
+      0.001,
+      0.010000000000000002,
+      0.10000000000000002,
+      1.0
+    ],
+    "TS_panel_B": [
+      0.005,
+      0.03,
+      0.07,
+      1.0
+    ],
+    "double_squeeze": {
+      "0.3": {
+        "r": 0.3,
+        "T_IR": 3.162277660168376e-08,
+        "T_star": 0.08483428982440722,
+        "T_UV_eff": 0.15,
+        "T_low_opt": 0.009210553176894818,
+        "T_high_opt": 0.11280577766081436,
+        "low_window_decades": 1.9285714285714286,
+        "high_window_decades": 0.2475198304842526
+      },
+      "0.4": {
+        "r": 0.4,
+        "T_IR": 2.3713737056616544e-06,
+        "T_star": 0.056234132519034905,
+        "T_UV_eff": 0.15,
+        "T_low_opt": 0.007498942093324558,
+        "T_high_opt": 0.0918429086966176,
+        "low_window_decades": 1.75,
+        "high_window_decades": 0.4260912590556813
+      },
+      "0.5": {
+        "r": 0.5,
+        "T_IR": 3.162277660168379e-05,
+        "T_star": 0.0316227766016838,
+        "T_UV_eff": 0.15,
+        "T_low_opt": 0.005623413251903492,
+        "T_high_opt": 0.06887246539984299,
+        "low_window_decades": 1.5,
+        "high_window_decades": 0.6760912590556811
+      }
+    },
+    "file_suffix": "_ParamSearch_rho1e-03"
   }
 }
